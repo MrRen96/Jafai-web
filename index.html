@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#111111">
+    <title>JAFAI — Just Another Fucking AI</title>
+    <link rel="icon" href="jafai-logo.png" type="image/png">
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <img class="logo" src="jafai-logo.png" alt="JAFAI" width="96" height="96">
+        <p class="tagline">Just Another Fucking AI</p>
+      </header>
+
+      <main class="conversation" aria-label="Conversation">
+        <div class="messages" id="messages" role="log" aria-label="Chat messages" aria-live="polite" aria-relevant="additions">
+          <section class="empty-state" id="empty-state">
+            <span class="eyebrow">JAFAI / CHAT</span>
+            <h1>Less noise.<br>More conversation.</h1>
+            <p>Say what’s on your mind.</p>
+          </section>
+        </div>
+      </main>
+
+      <div class="composer-dock">
+        <form class="composer" id="chat-form">
+          <label class="sr-only" for="message-input">Message JAFAI</label>
+          <textarea id="message-input" name="message" placeholder="Type a message…" rows="1" maxlength="10000" enterkeyhint="send" aria-describedby="keyboard-hint"></textarea>
+          <button class="send-button" type="submit" aria-label="Send message" title="Send message" disabled>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m5 12 7-7 7 7M12 5v14"/>
+            </svg>
+          </button>
+        </form>
+        <p class="keyboard-hint" id="keyboard-hint">Enter to send <span aria-hidden="true">·</span> Shift + Enter for a new line</p>
+        <footer>
+          <span class="status-dot" aria-hidden="true"></span>
+          <p>Cloud API Active. Do not input sensitive data.</p>
+        </footer>
+      </div>
+    </div>
+  </body>
+</html>
