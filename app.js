@@ -76,6 +76,149 @@ const settingsToggle = document.querySelector("#settings-toggle");
 const settingsDialog = document.querySelector("#settings-dialog");
 const settingsClose = document.querySelector("#settings-close");
 const installStatus = document.querySelector("#settings-install-status");
+const messageMenu = document.querySelector("#message-menu");
+const menuEdit = document.querySelector("#edit-message");
+const toast = document.querySelector("#message-toast");
+let menuTarget = null;
+let toastTimer = null;
+let actionEntries = [];
+let activeEditor = null;
+
+function latestUser(message) {
+  const session = sessions.find((item) => item.id === activeSessionId);
+  return message?.role === "user" && session?.messages.filter((item) => item.role === "user").at(-1) === message;
+}
+
+async function copyMessage(message) {
+  try {
+    await navigator.clipboard.writeText(message.content);
+    toast.textContent = "Copied";
+  } catch {
+    toast.textContent = "Copy unavailable. Select the text and use your browser's Copy command.";
+  }
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.hidden = true; }, 2200);
+}
+
+function closeMessageMenu() {
+  if (messageMenu.open) messageMenu.close();
+  menuTarget = null;
+}
+
+document.querySelector("#copy-message").addEventListener("click", () => {
+  const target = menuTarget;
+  closeMessageMenu();
+  if (target) void copyMessage(target.data);
+});
+menuEdit.addEventListener("click", () => {
+  const target = menuTarget;
+  closeMessageMenu();
+  if (target) editMessage(target);
+});
+document.querySelector("#close-message-menu").addEventListener("click", closeMessageMenu);
+messageMenu.addEventListener("close", () => { menuTarget = null; });
+messageMenu.addEventListener("click", (event) => { if (event.target === messageMenu) closeMessageMenu(); });
+
+function editMessage(entry) {
+  if (!latestUser(entry.data)) return;
+  activeEditor?.cancel();
+  const sessionId = activeSessionId;
+  const editor = document.createElement("div");
+  editor.className = "message-edit";
+  const field = document.createElement("textarea");
+  field.value = entry.data.content;
+  field.maxLength = 10000;
+  field.setAttribute("aria-label", "Edit your last message");
+  const save = document.createElement("button");
+  save.type = "button";
+  save.textContent = "Save";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.textContent = "Cancel";
+  const error = document.createElement("p");
+  error.className = "message-edit-error";
+  error.setAttribute("role", "alert");
+  error.hidden = true;
+  const finish = () => {
+    entry.body.hidden = false;
+    entry.actions.hidden = false;
+    editor.remove();
+    activeEditor = null;
+  };
+  const submit = () => {
+    if (isReadingImage) {
+      error.textContent = "Wait for the selected image to finish loading.";
+      error.hidden = false;
+      return;
+    }
+    const text = field.value.trim();
+    if (!text || text.length > 10000) {
+      error.textContent = "Enter between 1 and 10,000 characters.";
+      error.hidden = false;
+      return;
+    }
+    if (sessionId !== activeSessionId || !latestUser(entry.data)) { finish(); return; }
+    finish();
+    return sendMessage(text, entry.data.image, entry.data);
+  };
+  save.addEventListener("click", submit);
+  cancel.addEventListener("click", finish);
+  field.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); finish(); }
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); return submit(); }
+  });
+  editor.append(field, save, cancel, error);
+  entry.body.hidden = true;
+  entry.actions.hidden = true;
+  entry.article.append(editor);
+  activeEditor = { cancel: finish };
+  field.focus();
+}
+
+function addMessageActions(article, body, data) {
+  if (!data) return;
+  const actions = document.createElement("div");
+  actions.className = "message-actions";
+  const copy = document.createElement("button");
+  copy.className = "message-action";
+  copy.type = "button";
+  copy.textContent = "[ Copy ]";
+  copy.addEventListener("click", () => { void copyMessage(data); });
+  const edit = document.createElement("button");
+  edit.className = "message-action";
+  edit.type = "button";
+  edit.textContent = "[ Edit ]";
+  const entry = { article, body, actions, edit, copy, data };
+  edit.hidden = !latestUser(data);
+  edit.addEventListener("click", () => editMessage(entry));
+  actions.append(copy, edit);
+  article.append(actions);
+  actionEntries.push(entry);
+  let timer = null;
+  let origin = null;
+  const cancelHold = () => { clearTimeout(timer); timer = null; origin = null; };
+  const openMenu = () => {
+    cancelHold();
+    if (activeEditor || !actionEntries.includes(entry)) return;
+    menuTarget = entry;
+    menuEdit.hidden = !latestUser(data);
+    if (!messageMenu.open) messageMenu.showModal();
+  };
+  body.addEventListener("pointerdown", (event) => {
+    cancelHold();
+    if (!["touch", "pen"].includes(event.pointerType) || event.isPrimary === false) return;
+    origin = { x: event.clientX, y: event.clientY };
+    timer = setTimeout(openMenu, 550);
+  });
+  body.addEventListener("pointermove", (event) => {
+    if (origin && Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 10) cancelHold();
+  });
+  for (const name of ["pointerup", "pointercancel", "pointerleave"]) body.addEventListener(name, cancelHold);
+  body.addEventListener("contextmenu", (event) => {
+    if (mobileLayout.matches || event.pointerType === "touch" || event.pointerType === "pen") { event.preventDefault(); openMenu(); }
+  });
+}
 const standaloneMode = window.matchMedia("(display-mode: standalone)");
 let deferredPrompt = null;
 let installCompleted = false;
@@ -434,11 +577,14 @@ function renderHistory() {
 }
 
 function renderConversation() {
+  activeEditor?.cancel();
+  closeMessageMenu();
+  actionEntries = [];
   messages.replaceChildren();
   const session = sessions.find((item) => item.id === activeSessionId);
   if (!session?.messages.length) messages.append(emptyState.cloneNode(true));
   for (const message of session?.messages || []) {
-    const body = appendMessage(message.role === "user" ? "You" : "JAFAI", message.content, message.timestamp);
+    const body = appendMessage(message.role === "user" ? "You" : "JAFAI", message.content, message.timestamp, message);
     if (message.role === "user" && validImage(message.image)) appendImage(body, message.image);
     if (["error", "interrupted"].includes(message.status)) body.classList.add("message-body--error");
   }
@@ -501,6 +647,10 @@ function setSidebar(open) {
 }
 
 function updateComposer() {
+  for (const entry of actionEntries) {
+    entry.edit.hidden = !latestUser(entry.data);
+    entry.copy.disabled = !entry.data.content.trim();
+  }
   input.style.height = "auto";
   input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
   sendButton.disabled = isSending || isReadingImage || (!input.value.trim() && !pendingImage);
@@ -517,7 +667,7 @@ function appendImage(body, image) {
   body.append(preview);
 }
 
-function appendMessage(author, content, timestamp = new Date().toISOString()) {
+function appendMessage(author, content, timestamp = new Date().toISOString(), data = null) {
   const message = document.createElement("article");
   message.className = `message message--${author === "JAFAI" ? "assistant" : "user"}`;
 
@@ -533,10 +683,11 @@ function appendMessage(author, content, timestamp = new Date().toISOString()) {
   time.textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   meta.append(name, time);
 
-  const body = document.createElement(author === "JAFAI" ? "div" : "p");
+  const body = document.createElement("div");
   body.className = "message-body";
   body.textContent = content;
   message.append(meta, body);
+  addMessageActions(message, body, data);
   messages.append(message);
   scrollChatToBottom();
   return body;
@@ -597,11 +748,17 @@ async function readChatStream(response, onText) {
   }
 }
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const image = pendingImage;
-  const text = input.value.trim() || (image ? "Analyze this image structurally." : "");
-  if (!text || isSending || isReadingImage) return;
+async function sendMessage(text, image, editedMessage = null) {
+  if (!text || isReadingImage || (!editedMessage && isSending)) return;
+  if (editedMessage) {
+    if (!latestUser(editedMessage)) return;
+    stopResponse();
+    const session = sessions.find((item) => item.id === activeSessionId);
+    session.messages.splice(session.messages.indexOf(editedMessage));
+    if (!session.messages.length) session.title = Array.from(text).slice(0, 30).join("");
+    renderConversation();
+  }
+  activeEditor?.cancel();
 
   isSending = true;
   let session = sessions.find((item) => item.id === activeSessionId);
@@ -621,12 +778,11 @@ form.addEventListener("submit", async (event) => {
   const request = { controller: new AbortController(), reply: assistantMessage };
   currentRequest = request;
   document.querySelector("#empty-state")?.remove();
-  const userBody = appendMessage("You", text, userMessage.timestamp);
+  const userBody = appendMessage("You", text, userMessage.timestamp, userMessage);
   if (image) appendImage(userBody, image);
-  clearImage();
-  input.value = "";
+  if (!editedMessage) { clearImage(); input.value = ""; }
   updateComposer();
-  const replyBody = appendMessage("JAFAI", "Thinking…", assistantMessage.timestamp);
+  const replyBody = appendMessage("JAFAI", "Thinking…", assistantMessage.timestamp, assistantMessage);
   replyBody.setAttribute("aria-busy", "true");
   if (mobileLayout.matches) {
     input.blur();
@@ -681,6 +837,7 @@ form.addEventListener("submit", async (event) => {
       // Every delta must reveal its final line before any persistence work.
       scrollChatToBottom();
       assistantMessage.content += text;
+      updateMessageCopyState();
       scheduleSave();
     });
     if (currentRequest === request) assistantMessage.status = "complete";
@@ -703,8 +860,8 @@ form.addEventListener("submit", async (event) => {
     assistantMessage.content = replyBody.textContent;
     assistantMessage.status = "error";
     // Preserve the failed message for retry without replacing a new draft.
-    if (!input.value) input.value = text;
-    if (image && !pendingImage) {
+    if (!editedMessage && !input.value) input.value = text;
+    if (!editedMessage && image && !pendingImage) {
       pendingImage = image;
       imagePreview.src = image;
       imageName.textContent = "Image ready to retry";
@@ -720,6 +877,17 @@ form.addEventListener("submit", async (event) => {
       scrollChatToBottom();
     }
   }
+}
+
+function updateMessageCopyState() {
+  for (const entry of actionEntries) entry.copy.disabled = !entry.data.content.trim();
+}
+
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const image = pendingImage;
+  const text = input.value.trim() || (image ? "Analyze this image structurally." : "");
+  return sendMessage(text, image);
 });
 
 input.addEventListener("input", updateComposer);
@@ -752,7 +920,7 @@ document.querySelector("#sidebar-close").addEventListener("click", () => setSide
 sidebarBackdrop.addEventListener("click", () => setSidebar(false));
 document.querySelector("#new-chat").addEventListener("click", () => selectSession(null));
 document.addEventListener("keydown", (event) => {
-  if (settingsDialog.open) return; // Native dialog Escape handling takes priority.
+  if (settingsDialog.open || messageMenu.open || activeEditor) return; // Dialogs and editors handle Escape first.
   if (event.key === "Escape" && sidebarOpen) setSidebar(false);
 });
 mobileLayout.addEventListener("change", () => {

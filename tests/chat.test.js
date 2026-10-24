@@ -244,6 +244,7 @@ function frontend(fetchMock, options = {}) {
   const downloadCleanup = [];
   const keyboardTimers = [];
   const frames = [];
+  const holdTimers = [];
   const cssProperties = new Map();
   let activeElement = null;
   class Element {
@@ -287,7 +288,7 @@ function frontend(fetchMock, options = {}) {
   form.querySelector = () => button;
   const empty = new Element(); empty.id = "empty-state"; messages.append(empty);
   const nodes = { "#chat-form": form, "#message-input": input, "#messages": messages, ".composer-dock": new Element(), ".app": new Element() };
-  for (const id of ["session-list", "history-sidebar", "sidebar-toggle", "sidebar-backdrop", "storage-status", "sidebar-close", "new-chat", "export-chat", "import-chat", "import-file", "install-app", "settings-toggle", "settings-dialog", "settings-close", "settings-install-status", "attach-image", "image-file", "image-attachment", "image-preview", "image-name", "image-status", "remove-image"]) nodes[`#${id}`] = new Element();
+  for (const id of ["session-list", "history-sidebar", "sidebar-toggle", "sidebar-backdrop", "storage-status", "sidebar-close", "new-chat", "export-chat", "import-chat", "import-file", "install-app", "settings-toggle", "settings-dialog", "settings-close", "settings-install-status", "attach-image", "image-file", "image-attachment", "image-preview", "image-name", "image-status", "remove-image", "message-menu", "copy-message", "edit-message", "close-message-menu", "message-toast"]) nodes[`#${id}`] = new Element();
   nodes["#storage-status"].hidden = true;
   const storage = options.storage || new Map();
   const localStorage = {
@@ -315,7 +316,8 @@ function frontend(fetchMock, options = {}) {
     },
     window: mockWindow,
     requestAnimationFrame: fn => { frames.push(fn); return frames.length; },
-    localStorage, crypto: require("node:crypto").webcrypto, clearTimeout, Blob, File,
+    localStorage, crypto: require("node:crypto").webcrypto,
+    clearTimeout: timer => { if (timer?.hold) timer.cancelled = true; else clearTimeout(timer); }, Blob, File,
     navigator: options.navigator || {},
     FileReader: class {
       readAsDataURL(file) {
@@ -335,6 +337,7 @@ function frontend(fetchMock, options = {}) {
       revokeObjectURL: url => { revoked.push(url); },
     },
     setTimeout: (fn, delay) => {
+      if (delay === 550) { const timer = { hold: true, fn, cancelled: false }; holdTimers.push(timer); return timer; }
       if (delay === 1000) { downloadCleanup.push(fn); return 0; }
       if (delay === 150) { keyboardTimers.push(fn); return 0; }
       return setTimeout(fn, delay);
@@ -342,6 +345,7 @@ function frontend(fetchMock, options = {}) {
     ResizeObserver: class { observe() {} }, Date, AbortSignal, AbortController, TextDecoder, fetch: fetchMock,
   });
   return { input, messages, button, nodes, storage, body, documentEvents, windowEvents, downloads, blobs, revoked, downloadCleanup, standalone, standaloneEvents, visualViewport, viewportEvents, cssProperties, mockWindow, keyboardTimers,
+    hold: () => { for (const timer of holdTimers.splice(0)) if (!timer.cancelled) timer.fn(); },
     paint: () => { const queued = frames.splice(0); queued.forEach(fn => fn()); },
     submit: () => form.events.submit({ preventDefault() {} }),
     import: (file) => { nodes["#import-file"].files = file ? [file] : []; return nodes["#import-file"].events.change(); },
@@ -403,6 +407,122 @@ test("invalid attachments do not upload, removal clears the draft, and failed se
   ui.nodes["#new-chat"].events.click();
   assert.equal(ui.nodes["#image-attachment"].hidden, true);
   assert.equal(ui.button.disabled, true);
+});
+
+test("editing the latest user message replaces its reply, preserves earlier context and the composer draft", async () => {
+  const sent = [];
+  const ui = frontend(async (_url, options) => { sent.push(JSON.parse(options.body)); return sseResponse(`Reply ${sent.length}`); });
+  ui.input.value = "First";
+  await ui.submit();
+  ui.input.value = "Original last";
+  await ui.submit();
+  assert.equal(ui.messages.children[0].children[2].children[1].hidden, true);
+  const latest = ui.messages.children[2];
+  latest.children[2].children[1].events.click();
+  let editor = latest.children.at(-1);
+  assert.equal(editor.children[0].value, "Original last");
+  editor.children[0].value = "   ";
+  editor.children[1].events.click();
+  assert.equal(editor.children[3].hidden, false);
+  assert.equal(sent.length, 2);
+  editor.children[0].value = "Revised last";
+  ui.input.value = "Unsent draft";
+  await editor.children[1].events.click();
+  assert.equal(sent.length, 3);
+  assert.deepEqual(sent[2], { message: "Revised last", history: [
+    { role: "user", content: "First" }, { role: "assistant", content: "Reply 1" },
+  ] });
+  const saved = JSON.parse(ui.storage.get("jafai.chatSessions.v1"))[0];
+  assert.deepEqual(saved.messages.map(message => message.content), ["First", "Reply 1", "Revised last", "Reply 3"]);
+  assert.equal(ui.input.value, "Unsent draft");
+  const last = ui.messages.children[2];
+  last.children[2].children[1].events.click();
+  editor = last.children.at(-1);
+  editor.children[0].value = "Cancelled";
+  editor.children[2].events.click();
+  assert.equal(last.children[1].hidden, false);
+  assert.equal(sent.length, 3);
+});
+
+test("editing a streaming message cancels stale output and keeps the original attachment", async () => {
+  let resolveOld;
+  const sent = [];
+  const ui = frontend((_url, options) => {
+    sent.push(JSON.parse(options.body));
+    return sent.length === 1 ? new Promise(resolve => { resolveOld = resolve; }) : Promise.resolve(sseResponse("Fresh reply"));
+  });
+  ui.nodes["#image-file"].files = [{ name: "test.png", type: "image/png", size: 68, contents: imageFixture }];
+  await ui.nodes["#image-file"].events.change();
+  ui.input.value = "Original";
+  const pending = ui.submit();
+  const first = ui.messages.children[0];
+  first.children[2].children[1].events.click();
+  const editor = first.children.at(-1);
+  editor.children[0].value = "Revised";
+  await editor.children[0].events.keydown({ key: "Enter", preventDefault() {} });
+  // The key handler initiates regeneration; resolve the superseded request afterwards.
+  resolveOld(sseResponse("Stale reply"));
+  await pending;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sent[1].image, imageFixture);
+  assert.equal(sent[1].message, "Revised");
+  const saved = JSON.parse(ui.storage.get("jafai.chatSessions.v1"))[0];
+  assert.equal(saved.title, "Revised");
+  assert.deepEqual(saved.messages.map(message => message.content), ["Revised", "Fresh reply"]);
+  assert.equal(saved.messages[0].image, imageFixture);
+});
+
+test("copy actions use literal message text and report clipboard failures honestly", async () => {
+  const copied = [];
+  const ui = frontend(async () => sseResponse("<b>Literal</b>"), { navigator: { clipboard: { writeText: async text => { copied.push(text); } } } });
+  ui.input.value = "Hello\nWorld";
+  await ui.submit();
+  ui.messages.children[0].children[2].children[0].events.click();
+  await new Promise(resolve => setImmediate(resolve));
+  ui.messages.children[1].children[2].children[0].events.click();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(copied, ["Hello\nWorld", "<b>Literal</b>"]);
+  assert.equal(ui.nodes["#message-toast"].textContent, "Copied");
+  const failed = frontend(async () => sseResponse(), { navigator: { clipboard: { writeText: async () => { throw new Error("Denied"); } } } });
+  failed.input.value = "Hello";
+  await failed.submit();
+  failed.messages.children[0].children[2].children[0].events.click();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(failed.nodes["#message-toast"].textContent, /Copy unavailable/);
+});
+
+test("mobile long press opens copy/edit menu, while movement and early release cancel it", async () => {
+  let copied;
+  const ui = frontend(async () => sseResponse("Answer"), { mobile: true, navigator: { clipboard: { writeText: async text => { copied = text; } } } });
+  ui.input.value = "Question";
+  await ui.submit();
+  const bubble = ui.messages.children[0].children[1];
+  const down = { pointerType: "touch", clientX: 20, clientY: 30, isPrimary: true };
+  bubble.events.pointerdown(down);
+  bubble.events.pointerup();
+  ui.hold();
+  assert.ok(!ui.nodes["#message-menu"].open);
+  bubble.events.pointerdown(down);
+  bubble.events.pointermove({ clientX: 50, clientY: 30 });
+  ui.hold();
+  assert.ok(!ui.nodes["#message-menu"].open);
+  bubble.events.pointerdown(down);
+  ui.hold();
+  assert.equal(ui.nodes["#message-menu"].open, true);
+  assert.equal(ui.nodes["#edit-message"].hidden, false);
+  ui.nodes["#copy-message"].events.click();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(copied, "Question");
+  assert.equal(ui.nodes["#message-menu"].open, false);
+  const reply = ui.messages.children[1].children[1];
+  reply.events.pointerdown(down);
+  ui.hold();
+  assert.equal(ui.nodes["#edit-message"].hidden, true);
+  ui.nodes["#close-message-menu"].events.click();
+  bubble.events.pointerdown(down);
+  ui.hold();
+  ui.nodes["#edit-message"].events.click();
+  assert.equal(ui.messages.children[0].children.at(-1).className, "message-edit");
 });
 
 test("frontend posts messages, prevents duplicate sends, and renders reply as literal text", async () => {

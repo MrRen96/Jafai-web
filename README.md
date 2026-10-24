@@ -97,6 +97,15 @@ interpreted as new message boundaries by this plain-text format. Import accepts
 files up to 1 MB and transcripts up to 1,000 messages / 500,000 content characters.
 Invalid files leave the existing sessions intact and show an inline error.
 
+Hover over a message on desktop (or focus its actions with the keyboard) to copy
+its text. On touch devices, hold a bubble for 550 ms to open a Copy Text menu;
+moving more than 10 px or releasing early cancels the hold. Clipboard operations
+stay on the device and require browser clipboard support (HTTPS or localhost).
+The most recent user message also offers Edit, including in the touch menu.
+Save or Enter regenerates its reply; Shift+Enter adds a line and Cancel/Escape
+leaves the conversation unchanged. Editing preserves earlier context and the
+message's image, replaces subsequent replies, and keeps any composer draft.
+
 The backend sends the active conversation's history, current message, and JAFAI system prompt to
 `https://api.deepseek.com/v1/chat/completions` using `deepseek-flash`.
 History accepts only `user` and `assistant` roles, with a maximum of
