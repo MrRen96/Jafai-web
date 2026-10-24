@@ -1,0 +1,11 @@
+Term	Human meaning	Lived example
+Depression	The light within is dim.	You wake up to a beautiful day, and you know it should feel beautiful, yet somehow the colour just isn't reaching you.
+Anxiety	The mind is searching for safety.	Everything seems okay, yet your mind keeps checking, "What if something goes wrong?"
+ADHD	The mind wanders where curiosity takes it.	You sit down to finish one thing, notice something interesting, follow that thought somewhere else, and suddenly you've opened five different doors in your mind.
+Autism	Living in your own time and space.	You may experience sounds, routines, interests, communication, or social situations differently, finding your own rhythm for understanding and engaging with the world.
+OCD	The mind is searching for certainty.	You know you locked the door, yet your mind asks, "Are you absolutely sure?" Checking gives relief, then the doubt returns.
+PTSD	The past still echoes in the present.	Something happening now reminds your mind or body of what happened before, and for a moment the old danger feels close again.
+Dissociation	Feeling distant from the moment you're living.	You're physically there and can see what's happening around you, yet somehow you don't feel completely connected to yourself or the moment.
+Psychosis	The inner world and outer world begin to overlap.	Something generated within your own experience may begin to feel as though it belongs to the world around you, making the boundary between the two harder to determine.
+Bipolar	The rhythm within rises and falls.	At one time your energy, activity, thoughts, or mood may rise far beyond your usual rhythm, while at another time they may fall far below it.
+Addiction	Something once comforting has become difficult to let go.	Something that once helped you relax, escape, feel good, or cope gradually becomes something you keep returning to even when it's beginning to cost you.
