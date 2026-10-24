@@ -182,6 +182,10 @@ test("Knowledge folder loads sorted text files and falls back safely for empty o
 });
 
 function frontend(fetchMock, options = {}) {
+  const downloads = [];
+  const blobs = [];
+  const revoked = [];
+  const downloadCleanup = [];
   class Element {
     constructor() {
       this.style = {}; this.children = []; this.events = {}; this.value = "";
@@ -207,6 +211,7 @@ function frontend(fetchMock, options = {}) {
       return copy;
     }
     focus() { this.focused = true; }
+    click() { downloads.push({ href: this.href, filename: this.download }); }
     remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
     setAttribute(key, value) { this[key] = value; }
   }
@@ -214,7 +219,7 @@ function frontend(fetchMock, options = {}) {
   form.querySelector = () => button;
   const empty = new Element(); empty.id = "empty-state"; messages.append(empty);
   const nodes = { "#chat-form": form, "#message-input": input, "#messages": messages, ".composer-dock": new Element(), ".app": new Element() };
-  for (const id of ["session-list", "history-sidebar", "sidebar-toggle", "sidebar-backdrop", "storage-status", "sidebar-close", "new-chat"]) nodes[`#${id}`] = new Element();
+  for (const id of ["session-list", "history-sidebar", "sidebar-toggle", "sidebar-backdrop", "storage-status", "sidebar-close", "new-chat", "export-chat"]) nodes[`#${id}`] = new Element();
   const storage = options.storage || new Map();
   const localStorage = {
     getItem: key => { if (options.blocked) throw new Error("Blocked storage"); return storage.get(key) ?? null; },
@@ -231,10 +236,18 @@ function frontend(fetchMock, options = {}) {
       addEventListener: (name, fn) => { documentEvents[name] = fn; },
     },
     window: { matchMedia: () => media, addEventListener: (name, fn) => { windowEvents[name] = fn; } },
-    localStorage, crypto: require("node:crypto").webcrypto, setTimeout, clearTimeout,
+    localStorage, crypto: require("node:crypto").webcrypto, clearTimeout, Blob,
+    URL: {
+      createObjectURL: blob => { blobs.push(blob); return `blob:test-${blobs.length}`; },
+      revokeObjectURL: url => { revoked.push(url); },
+    },
+    setTimeout: (fn, delay) => {
+      if (delay === 1000) { downloadCleanup.push(fn); return 0; }
+      return setTimeout(fn, delay);
+    },
     ResizeObserver: class { observe() {} }, Date, AbortSignal, AbortController, TextDecoder, fetch: fetchMock,
   });
-  return { input, messages, button, nodes, storage, body, documentEvents, windowEvents, submit: () => form.events.submit({ preventDefault() {} }) };
+  return { input, messages, button, nodes, storage, body, documentEvents, windowEvents, downloads, blobs, revoked, downloadCleanup, submit: () => form.events.submit({ preventDefault() {} }) };
 }
 
 test("frontend posts messages, prevents duplicate sends, and renders reply as literal text", async () => {
@@ -449,6 +462,68 @@ test("sidebar collapses on desktop and overlays mobile without creating empty ch
   assert.equal(mobile.nodes["#history-sidebar"].hidden, true);
   assert.equal(mobile.nodes[".app"].inert, false);
   assert.equal(mobile.storage.get("jafai.chatSessions.v1"), "[]");
+});
+
+test("export reads only the active saved chat and creates a local UTF-8 download with cleanup", async () => {
+  let fetchCalls = 0;
+  const timestamp = "2026-10-24T00:00:00.000Z";
+  const saved = [
+    { id: "active", title: "Hello / : ? chat", timestamp, messages: [{ role: "user", content: "Hello 🌋\nSecond line", timestamp }] },
+    { id: "other", title: "Other chat", timestamp, messages: [{ role: "user", content: "Do not export this", timestamp }] },
+  ];
+  const storage = new Map([["jafai.chatSessions.v1", JSON.stringify(saved)], ["jafai.activeSession.v1", "active"]]);
+  const ui = frontend(async () => { fetchCalls++; return sseResponse(); }, { storage });
+  assert.equal(ui.nodes["#export-chat"].disabled, false);
+  // Update the saved copy after load to prove export reads localStorage, not the DOM.
+  saved[0].messages.push({ role: "assistant", content: "Saved answer", timestamp });
+  storage.set("jafai.chatSessions.v1", JSON.stringify(saved));
+  ui.nodes["#export-chat"].events.click();
+  assert.equal(fetchCalls, 0);
+  assert.equal(ui.downloads.length, 1);
+  assert.equal(ui.downloads[0].filename, "jafai-chat-2026-10-24-hello-chat.txt");
+  assert.equal(ui.blobs[0].type, "text/plain;charset=utf-8");
+  assert.equal(await ui.blobs[0].text(), "USER: Hello 🌋\nSecond line\n\nJAFAI: Saved answer\n");
+  assert.equal(ui.body.children.length, 0);
+  assert.equal(ui.revoked.length, 0);
+  ui.downloadCleanup[0]();
+  assert.deepEqual(ui.revoked, ["blob:test-1"]);
+});
+
+test("export is unavailable for blank chats and handles missing or corrupt saved sessions", async () => {
+  const ui = frontend(async () => sseResponse("Answer"));
+  assert.equal(ui.nodes["#export-chat"].disabled, true);
+  ui.nodes["#export-chat"].events.click();
+  assert.equal(ui.downloads.length, 0);
+  ui.input.value = "Question";
+  await ui.submit();
+  for (const badValue of ["[]", "invalid JSON"]) {
+    ui.storage.set("jafai.chatSessions.v1", badValue);
+    ui.nodes["#export-chat"].events.click();
+    assert.equal(ui.downloads.length, 0);
+    assert.equal(ui.nodes["#storage-status"].hidden, false);
+  }
+});
+
+test("export flushes pending streamed text without stopping the response", async () => {
+  let controller;
+  let notify;
+  const painted = new Promise(resolve => { notify = resolve; });
+  const ui = frontend(async () => new Response(new ReadableStream({ start(value) { controller = value; } }), {
+    headers: { "Content-Type": "text/event-stream" },
+  }));
+  ui.input.value = "Question";
+  const pending = ui.submit();
+  const reply = ui.messages.children[1].children[1];
+  const append = reply.append.bind(reply);
+  reply.append = (...nodes) => { append(...nodes); notify(); };
+  controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"Partial answer"}}]}\n\n'));
+  await painted;
+  ui.nodes["#export-chat"].events.click();
+  assert.equal(await ui.blobs[0].text(), "USER: Question\n\nJAFAI: Partial answer\n");
+  assert.equal(ui.button.disabled, true);
+  controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+  await pending;
+  ui.downloadCleanup[0]();
 });
 
 test("backend forwards bytes before upstream completes and aborts on client disconnect", async (t) => {

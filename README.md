@@ -38,6 +38,12 @@ and leave the current chat usable in memory. Malformed stored history is left
 untouched. History remains on the device; each send still posts only the current
 message to the existing cloud endpoint, rather than the saved transcript.
 
+`[ Export Chat ]` downloads the active saved conversation as a UTF-8 `.txt`
+file with `USER:` and `JAFAI:` labels. The filename includes the session date
+and a sanitized title. Export uses only localStorage and a local Blob download;
+it does not call the backend. Pending streamed text is saved before export.
+The action is disabled for a blank New Chat.
+
 The backend sends the current message and the JAFAI system prompt to
 `https://api.deepseek.com/v1/chat/completions` using `deepseek-chat`, exactly as
 requested. Earlier messages are displayed locally but are not sent as context.

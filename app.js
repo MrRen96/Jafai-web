@@ -10,6 +10,7 @@ const sidebar = document.querySelector("#history-sidebar");
 const sidebarToggle = document.querySelector("#sidebar-toggle");
 const sidebarBackdrop = document.querySelector("#sidebar-backdrop");
 const storageStatus = document.querySelector("#storage-status");
+const exportButton = document.querySelector("#export-chat");
 const mobileLayout = window.matchMedia("(max-width: 760px)");
 const STORAGE_KEY = "jafai.chatSessions.v1";
 const ACTIVE_KEY = "jafai.activeSession.v1";
@@ -66,18 +67,57 @@ function loadSessions() {
 function saveSessions() {
   clearTimeout(saveTimer);
   saveTimer = null;
-  if (!storageReadable) return;
+  if (!storageReadable) return false;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
     localStorage.setItem(ACTIVE_KEY, activeSessionId || "");
     storageWarning("");
+    return true;
   } catch {
     storageWarning("History could not be saved. Browser storage may be full or unavailable.");
+    return false;
   }
 }
 
 function scheduleSave() {
   if (saveTimer === null) saveTimer = setTimeout(saveSessions, 200);
+}
+
+function exportActiveChat() {
+  if (!activeSessionId) return;
+  // Flush pending stream text before reading the saved snapshot for export.
+  if ((saveTimer !== null || currentRequest) && !saveSessions()) return;
+  try {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    const session = Array.isArray(stored) ? stored.find((item) => item?.id === activeSessionId) : null;
+    if (!session || !Array.isArray(session.messages)) throw new Error("No saved chat");
+    const transcript = session.messages.map((message) => {
+      if (!message || !["user", "assistant"].includes(message.role) || typeof message.content !== "string") {
+        throw new Error("Invalid saved message");
+      }
+      return message.content.trim() ? `${message.role === "user" ? "USER" : "JAFAI"}: ${message.content}` : "";
+    }).filter(Boolean).join("\n\n");
+    if (!transcript) throw new Error("Empty chat");
+
+    const date = new Date(session.timestamp).toISOString().slice(0, 10);
+    const title = String(session.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
+    const blob = new Blob([`${transcript}\n`], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `jafai-chat-${date}${title ? `-${title}` : ""}.txt`;
+    link.hidden = true;
+    try {
+      document.body.append(link);
+      link.click();
+    } finally {
+      link.remove();
+      // Allow the browser to start the download before releasing the Blob URL.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  } catch {
+    storageWarning("This saved chat could not be exported. Check that browser storage is available.");
+  }
 }
 
 function renderHistory() {
@@ -180,6 +220,7 @@ function updateComposer() {
   input.style.height = "auto";
   input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
   sendButton.disabled = isSending || !input.value.trim();
+  exportButton.disabled = !sessions.some((session) => session.id === activeSessionId && session.messages.some((message) => message.content.trim()));
 }
 
 function appendMessage(author, content, timestamp = new Date().toISOString()) {
@@ -368,6 +409,7 @@ new ResizeObserver(() => {
 }).observe(dock);
 
 sidebarToggle.addEventListener("click", () => setSidebar(true));
+exportButton.addEventListener("click", exportActiveChat);
 document.querySelector("#sidebar-close").addEventListener("click", () => setSidebar(false));
 sidebarBackdrop.addEventListener("click", () => setSidebar(false));
 document.querySelector("#new-chat").addEventListener("click", () => selectSession(null));
