@@ -29,6 +29,11 @@
       <span class="eyebrow">JAFAI / HISTORY</span>
       <button class="new-chat" id="new-chat" type="button">+ New Chat</button>
       <nav class="session-list" id="session-list" aria-label="Saved chats"></nav>
+      <div class="sidebar-actions" role="group" aria-label="Chat files">
+        <button class="sidebar-action" id="import-chat" type="button" aria-label="Import chat"><span aria-hidden="true">+</span> Import</button>
+        <button class="sidebar-action" id="export-chat" type="button" aria-label="Export current chat" disabled><span aria-hidden="true">↑</span> Export</button>
+        <input id="import-file" type="file" accept=".txt,text/plain" aria-label="Import a JAFAI text chat" hidden>
+      </div>
       <p class="vault-caption">LOCAL VAULT / THIS BROWSER</p>
     </aside>
     <div class="app">
@@ -42,11 +47,6 @@
 
       <div class="chat-panel">
         <main class="conversation" aria-label="Conversation">
-          <div class="conversation-tools">
-            <button class="export-chat" id="import-chat" type="button">[ Import Chat ]</button>
-            <button class="export-chat" id="export-chat" type="button" disabled>[ Export Chat ]</button>
-            <input id="import-file" type="file" accept=".txt,text/plain" aria-label="Import a JAFAI text chat" hidden>
-          </div>
           <div class="messages" id="messages" role="log" aria-label="Chat messages" aria-live="polite" aria-relevant="additions">
             <section class="empty-state" id="empty-state">
               <h1>Less noise.<br>More conversation.</h1>

@@ -32,7 +32,13 @@ body.sidebar-open { --sidebar-offset: 260px; }
 .sidebar-close:focus-visible { outline: none; color: var(--orange); text-decoration: underline; text-underline-offset: 4px; }
 .new-chat { align-self: flex-start; border: 0; color: #e67b59; padding: 10px 0; text-align: left; font-size: 13px; transition: color .15s ease-out, background-color .15s ease-out; }
 .new-chat:hover { color: var(--orange); background: #ffffff06; }
-.session-list { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #39302c transparent; }
+.session-list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #39302c transparent; }
+.sidebar-actions { display: flex; flex-direction: column; flex-shrink: 0; gap: 2px; }
+.sidebar-action { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 0; border: 0; border-radius: 0; background: transparent; color: #858585; text-align: left; font-size: 13px; cursor: pointer; transition: color .15s ease-out, background-color .15s ease-out; }
+.sidebar-action span { width: 14px; text-align: center; font-size: 16px; line-height: 1; }
+.sidebar-action:hover:enabled { color: var(--orange); background: #ffffff06; }
+.sidebar-action:focus-visible { color: var(--orange); outline: 1px solid var(--orange); outline-offset: 3px; }
+.sidebar-action:disabled { opacity: .45; cursor: default; }
 .session-row { display: flex; align-items: stretch; margin-bottom: 8px; border-left: 2px solid transparent; }
 .session-row.is-active { border-color: var(--orange); background: #ff57220a; }
 .session-open { flex: 1; min-width: 0; padding: 12px 10px; border: 0; text-align: left; }
@@ -79,11 +85,6 @@ body.sidebar-open { --sidebar-offset: 260px; }
   display: flex;
   flex-direction: column;
 }
-.conversation-tools { display: flex; flex-shrink: 0; justify-content: flex-end; align-items: center; gap: 16px; min-height: 32px; padding: 0; }
-.export-chat { border: 0; border-radius: 0; padding: 8px 0; background: transparent; color: #858585; font-size: 11px; cursor: pointer; transition: color .15s ease-out; }
-.export-chat:hover:enabled { color: var(--orange); }
-.export-chat:focus-visible { color: var(--orange); outline: 1px solid var(--orange); outline-offset: 3px; }
-.export-chat:disabled { opacity: .45; cursor: default; }
 .messages {
   flex: 1;
   min-height: 0;

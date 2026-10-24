@@ -74,7 +74,8 @@ new user message are sent to the cloud endpoint for conversation context. Other
 saved sessions are not included. Failed and interrupted assistant responses are
 excluded from follow-up context.
 
-`[ Export Chat ]` exports the active saved conversation as a UTF-8 `.txt`
+The sidebar's bottom actions sit above the local-vault caption. `↑ Export`
+exports the active saved conversation as a UTF-8 `.txt`
 file with `USER:` and `JAFAI:` labels. The filename includes the session date
 and a sanitized title. Where `navigator.canShare({ files })` confirms support,
 the export opens the native share sheet with the text file. Otherwise it uses
@@ -84,7 +85,7 @@ Pending streamed text is saved before export. The share sheet requires HTTPS
 (or localhost) and a user click; available save/share targets depend on the device.
 The action is disabled for a blank New Chat.
 
-`[ Import Chat ]` uses the browser's native file picker (`.txt` / `text/plain`,
+`+ Import` uses the browser's native file picker (`.txt` / `text/plain`,
 without camera capture) and FileReader to restore
 `USER:` / `JAFAI:` message blocks into a new saved session. Multiline messages,
 UTF-8, Windows line endings, and a UTF-8 BOM are supported. Import itself makes
