@@ -211,7 +211,10 @@ function frontend(fetchMock, options = {}) {
       return copy;
     }
     focus() { this.focused = true; }
-    click() { downloads.push({ href: this.href, filename: this.download }); }
+    click() {
+      this.clickCount = (this.clickCount || 0) + 1;
+      if (this.download) downloads.push({ href: this.href, filename: this.download });
+    }
     remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
     setAttribute(key, value) { this[key] = value; }
   }
@@ -237,7 +240,8 @@ function frontend(fetchMock, options = {}) {
       addEventListener: (name, fn) => { documentEvents[name] = fn; },
     },
     window: { matchMedia: () => media, addEventListener: (name, fn) => { windowEvents[name] = fn; } },
-    localStorage, crypto: require("node:crypto").webcrypto, clearTimeout, Blob,
+    localStorage, crypto: require("node:crypto").webcrypto, clearTimeout, Blob, File,
+    navigator: options.navigator || {},
     FileReader: class {
       readAsText(file, encoding) {
         assert.equal(encoding, "UTF-8");
@@ -638,6 +642,74 @@ test("backend forwards validated history as conversation roles while rejecting s
   await handler({ method: "POST", body: { message: "Continue", history } }, res);
   assert.equal(res.code, 200);
   assert.equal(calls, 1);
+});
+
+test("mobile export shares the exact text file locally and prevents overlapping share sheets", async () => {
+  let shareData;
+  let finishShare;
+  let shareCalls = 0;
+  let fetchCalls = 0;
+  const ui = frontend(async () => { fetchCalls++; return sseResponse("Mobile reply 🌋"); }, {
+    navigator: {
+      canShare: data => { assert.equal(data.files[0] instanceof File, true); return true; },
+      share: data => {
+        shareData = data;
+        shareCalls++;
+        return new Promise(resolve => { finishShare = resolve; });
+      },
+    },
+  });
+  ui.input.value = "Mobile question";
+  await ui.submit();
+  const pending = ui.nodes["#export-chat"].events.click();
+  assert.equal(shareCalls, 1);
+  assert.equal(ui.nodes["#export-chat"].disabled, true);
+  await ui.nodes["#export-chat"].events.click();
+  assert.equal(shareCalls, 1);
+  assert.equal(shareData.files[0].name.endsWith("-mobile-question.txt"), true);
+  assert.equal(shareData.files[0].type, "text/plain");
+  assert.equal(await shareData.files[0].text(), "USER: Mobile question\n\nJAFAI: Mobile reply 🌋\n");
+  finishShare();
+  await pending;
+  assert.equal(ui.nodes["#export-chat"].disabled, false);
+  assert.equal(ui.downloads.length, 0);
+  assert.equal(ui.blobs.length, 0);
+  assert.equal(fetchCalls, 1); // Only the chat message, never an export upload.
+});
+
+test("cancelled sharing stays cancelled; unsupported or failed sharing falls back to download", async () => {
+  for (const mode of ["cancel", "blocked", "unsupported", "no-file-check", "capability-error"]) {
+    let shareCalls = 0;
+    const navigator = {
+      canShare: () => {
+        if (mode === "capability-error") throw new Error("Unavailable capability check");
+        return mode !== "unsupported";
+      },
+      share: async () => {
+        shareCalls++;
+        throw Object.assign(new Error(), { name: mode === "cancel" ? "AbortError" : "NotAllowedError" });
+      },
+    };
+    if (mode === "no-file-check") delete navigator.canShare;
+    const ui = frontend(async () => sseResponse("Answer"), { navigator });
+    ui.input.value = "Question";
+    await ui.submit();
+    await ui.nodes["#export-chat"].events.click();
+    assert.equal(ui.downloads.length, mode === "cancel" ? 0 : 1);
+    assert.equal(shareCalls, ["cancel", "blocked"].includes(mode) ? 1 : 0);
+    assert.equal(ui.nodes["#storage-status"].hidden, true);
+    assert.equal(ui.nodes["#export-chat"].disabled, false);
+    ui.downloadCleanup.forEach(cleanup => cleanup());
+  }
+});
+
+test("Import Chat invokes the native file input synchronously", () => {
+  const ui = frontend(async () => sseResponse());
+  ui.nodes["#import-file"].value = "previous-selection.txt";
+  ui.nodes["#import-chat"].events.click();
+  assert.equal(ui.nodes["#import-file"].value, "");
+  assert.equal(ui.nodes["#import-file"].clickCount, 1);
+  assert.equal(ui.downloads.length, 0);
 });
 
 test("backend forwards bytes before upstream completes and aborts on client disconnect", async (t) => {

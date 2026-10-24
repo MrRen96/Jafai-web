@@ -23,6 +23,7 @@ let currentRequest = null;
 let saveTimer = null;
 let storageReadable = true;
 let isSending = false;
+let isExporting = false;
 
 function storageWarning(text) {
   storageStatus.textContent = text;
@@ -85,10 +86,12 @@ function scheduleSave() {
   if (saveTimer === null) saveTimer = setTimeout(saveSessions, 200);
 }
 
-function exportActiveChat() {
-  if (!activeSessionId) return;
+async function exportActiveChat() {
+  if (!activeSessionId || isExporting) return;
   // Flush pending stream text before reading the saved snapshot for export.
   if ((saveTimer !== null || currentRequest) && !saveSessions()) return;
+  isExporting = true;
+  exportButton.disabled = true;
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
     const session = Array.isArray(stored) ? stored.find((item) => item?.id === activeSessionId) : null;
@@ -103,11 +106,26 @@ function exportActiveChat() {
 
     const date = new Date(session.timestamp).toISOString().slice(0, 10);
     const title = String(session.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
+    const filename = `jafai-chat-${date}${title ? `-${title}` : ""}.txt`;
     const blob = new Blob([`${transcript}\n`], { type: "text/plain;charset=utf-8" });
+    if (typeof navigator.share === "function" && typeof navigator.canShare === "function" && typeof File === "function") {
+      const file = new File([blob], filename, { type: "text/plain" });
+      try {
+        if (navigator.canShare({ files: [file] })) {
+          // Keep this in the click handler, before any other asynchronous work.
+          await navigator.share({ files: [file], title: session.title || "JAFAI Chat" });
+          return;
+        }
+      } catch (error) {
+        // Dismissing the share sheet must not trigger an unwanted download.
+        if (error.name === "AbortError") return;
+        // Unsupported or blocked file sharing falls back to a local download.
+      }
+    }
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `jafai-chat-${date}${title ? `-${title}` : ""}.txt`;
+    link.download = filename;
     link.hidden = true;
     try {
       document.body.append(link);
@@ -119,6 +137,9 @@ function exportActiveChat() {
     }
   } catch {
     storageWarning("This saved chat could not be exported. Check that browser storage is available.");
+  } finally {
+    isExporting = false;
+    updateComposer();
   }
 }
 
@@ -291,7 +312,7 @@ function updateComposer() {
   input.style.height = "auto";
   input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
   sendButton.disabled = isSending || !input.value.trim();
-  exportButton.disabled = !sessions.some((session) => session.id === activeSessionId && session.messages.some((message) => message.content.trim()));
+  exportButton.disabled = isExporting || !sessions.some((session) => session.id === activeSessionId && session.messages.some((message) => message.content.trim()));
 }
 
 function appendMessage(author, content, timestamp = new Date().toISOString()) {
