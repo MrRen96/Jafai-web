@@ -49,8 +49,7 @@ body.sidebar-open { --sidebar-offset: 260px; }
 .sidebar-open .header { padding-left: var(--chat-gutter); }
 .sidebar-brand, .header-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .header-brand { flex: 1; }
-.sidebar-open .header-brand, .header-context { display: none; }
-.sidebar-open .header-context { display: block; }
+.sidebar-open .header-brand { display: none; }
 .brand-copy { min-width: 0; }
 .brand-name { display: block; color: var(--orange); font-size: 13px; font-weight: 650; letter-spacing: .14em; }
 .install-app { display: none; flex-shrink: 0; margin-left: auto; border: 0; border-radius: 0; padding: 8px 0; background: #111111; color: var(--orange); font-size: 11px; line-height: 16px; cursor: pointer; }
@@ -97,6 +96,8 @@ body.sidebar-open { --sidebar-offset: 260px; }
   overflow-anchor: none;
 }
 .empty-state { padding: clamp(24px, 7vh, 64px) 0 24px; }
+/* Keep the heading at the same height after removing its label line. */
+.empty-state::before { content: ""; display: block; height: 1lh; }
 .eyebrow { color: var(--orange); font-size: 10px; font-weight: 650; letter-spacing: .2em; }
 .empty-state h1 { margin: 20px 0 16px; font-size: clamp(30px, 5vw, 46px); font-weight: 550; line-height: 1.15; letter-spacing: -.045em; }
 .empty-state p { margin: 0; color: #8f8f8f; font-size: 14px; }
