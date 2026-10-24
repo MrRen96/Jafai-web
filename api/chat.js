@@ -2,6 +2,8 @@
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const { Readable } = require("node:stream");
+const { pipeline } = require("node:stream/promises");
 
 const SYSTEM_PROMPT = `You are JAFAI (Just Another Fucking AI). Speak in the Street Dialect with the calm, quiet confidence of a seasoned intelligence officer or a street-smart mentor. Be direct, matter-of-fact, and grounded. Avoid aggressive introductions, theatrical toughness, and lists of what you are not.
 
@@ -49,6 +51,9 @@ module.exports = async function handler(req, res) {
     return res.status(503).json({ error: "Chat is not configured. Set DEEPSEEK_API_KEY on the server." });
   }
 
+  const controller = new AbortController();
+  const onClose = () => controller.abort();
+  res.on("close", onClose);
   try {
     const systemPrompt = await buildSystemPrompt();
     const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
@@ -63,9 +68,9 @@ module.exports = async function handler(req, res) {
           { role: "system", content: systemPrompt },
           { role: "user", content: message.trim() },
         ],
-        stream: false,
+        stream: true,
       }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(25000)]),
     });
 
     // Keep provider errors and credentials out of client responses.
@@ -77,19 +82,31 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const data = await response.json();
-    const reply = data?.choices?.[0]?.message?.content;
-    if (typeof reply !== "string" || !reply.trim()) {
-      return res.status(502).json({ error: "The AI service returned an empty response. Please try again." });
+    if (!response.body) {
+      return res.status(502).json({ error: "The AI service returned no stream. Please try again." });
     }
 
-    return res.status(200).json({ reply });
+    res.status(200);
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-store, no-transform");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+    // Forward SSE bytes unchanged; pipeline handles backpressure and cleanup.
+    await pipeline(Readable.fromWeb(response.body), res);
   } catch (error) {
+    if (res.headersSent || res.destroyed) {
+      // Headers are committed: close the stream rather than writing JSON into SSE.
+      if (!res.destroyed) res.destroy();
+      return;
+    }
     const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
     return res.status(timedOut ? 504 : 502).json({
       error: timedOut
         ? "The AI service took too long to respond. Please try again."
         : "Unable to reach the AI service. Please try again.",
     });
+  } finally {
+    res.off("close", onClose);
+    controller.abort();
   }
 };

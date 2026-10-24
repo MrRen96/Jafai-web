@@ -51,6 +51,12 @@ button { -webkit-tap-highlight-color: transparent; }
 .message-body { margin: 0; padding: 18px 20px; border-radius: 12px; background: #242424; line-height: 1.65; font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .message--assistant .message-body { background: #090909; border-left: 2px solid var(--orange); border-radius: 3px 12px 12px 3px; }
 .message--assistant .message-body--error { border-left-color: var(--red); color: #efb0a7; }
+.fade-in-word { position: relative; animation: fade-in-word .2s ease-out both; }
+@keyframes fade-in-word {
+  from { opacity: 0; top: 3px; }
+  to { opacity: 1; top: 0; }
+}
+.stream-error { color: #efb0a7; }
 .composer-dock {
   position: fixed;
   bottom: 0;
@@ -83,4 +89,4 @@ footer p { margin: 0; color: #858585; font-size: 11px; line-height: 1.5; }
   .empty-state { padding-left: 8px; }
   footer p { font-size: 10px; }
 }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

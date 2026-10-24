@@ -38,6 +38,61 @@ function appendMessage(author, content) {
   return body;
 }
 
+async function readChatStream(response, onText) {
+  if (!response.body || !response.headers.get("content-type")?.includes("text/event-stream")) {
+    throw new Error("Chat returned an invalid stream. Please try again.");
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finished = false;
+  let receivedText = "";
+
+  function processEvent(event) {
+    const data = event.split(/\r?\n/)
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).replace(/^ /, ""))
+      .join("\n");
+    if (!data) return; // Ignore keep-alive comments and metadata.
+    if (data.trim() === "[DONE]") { finished = true; return; }
+    let chunk;
+    try { chunk = JSON.parse(data); }
+    catch { throw new Error("Chat returned an invalid stream. Please try again."); }
+    if (chunk.error) throw new Error("The AI service interrupted the response. Please try again.");
+    const text = chunk.choices?.[0]?.delta?.content;
+    if (typeof text === "string" && text) {
+      receivedText += text;
+      onText(text);
+    }
+  }
+
+  function drainEvents() {
+    let boundary;
+    while (!finished && (boundary = /\r?\n\r?\n/.exec(buffer))) {
+      const event = buffer.slice(0, boundary.index);
+      buffer = buffer.slice(boundary.index + boundary[0].length);
+      processEvent(event);
+    }
+  }
+
+  try {
+    while (!finished) {
+      const { value, done } = await reader.read();
+      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+      drainEvents();
+      if (done) {
+        if (!finished && buffer.trim()) processEvent(buffer);
+        break;
+      }
+    }
+    if (!finished) throw new Error("The response was interrupted. Please try again.");
+    if (!receivedText.trim()) throw new Error("The AI service returned an empty response. Please try again.");
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const text = input.value.trim();
@@ -51,6 +106,7 @@ form.addEventListener("submit", async (event) => {
   const replyBody = appendMessage("JAFAI", "Thinking…");
   replyBody.setAttribute("aria-busy", "true");
   input.focus();
+  let hasReply = false;
 
   try {
     const response = await fetch("/api/chat", {
@@ -59,19 +115,31 @@ form.addEventListener("submit", async (event) => {
       body: JSON.stringify({ message: text }),
       signal: AbortSignal.timeout(35000),
     });
-    const data = await response.json().catch(() => null);
     if (!response.ok) {
+      const data = await response.json().catch(() => null);
       throw new Error(data?.error || "Chat is unavailable. Please try again.");
     }
-    if (typeof data?.reply !== "string" || !data.reply.trim()) {
-      throw new Error("Chat returned an invalid response. Please try again.");
-    }
-    replyBody.textContent = data.reply;
+    await readChatStream(response, (text) => {
+      if (!hasReply) { replyBody.textContent = ""; hasReply = true; }
+      const span = document.createElement("span");
+      span.className = "fade-in-word";
+      span.textContent = text;
+      replyBody.append(span);
+      messages.scrollTop = messages.scrollHeight;
+    });
   } catch (error) {
     const timedOut = error.name === "TimeoutError" || error.name === "AbortError";
-    replyBody.textContent = timedOut
+    const errorText = timedOut
       ? "The request timed out. Please try again."
       : `Could not send: ${error.message || "Check your connection and try again."}`;
+    if (hasReply) {
+      const notice = document.createElement("span");
+      notice.className = "stream-error";
+      notice.textContent = `\n\n${errorText}`;
+      replyBody.append(notice);
+    } else {
+      replyBody.textContent = errorText;
+    }
     replyBody.classList.add("message-body--error");
     replyBody.setAttribute("role", "alert");
     // Preserve the failed message for retry without replacing a new draft.

@@ -3,14 +3,23 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const handler = require("../api/chat.js");
+const { Writable } = require("node:stream");
+
+function sseResponse(text = "Real reply") {
+  return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\ndata: [DONE]\n\n`, {
+    headers: { "Content-Type": "text/event-stream" },
+  });
+}
 
 function response() {
-  return {
-    headers: {},
-    setHeader(key, value) { this.headers[key] = value; },
-    status(code) { this.code = code; return this; },
-    json(body) { this.body = body; return this; },
-  };
+  const res = new Writable({ write(chunk, _encoding, callback) { res.chunks.push(Buffer.from(chunk)); callback(); } });
+  res.chunks = [];
+  res.headers = {};
+  res.setHeader = (key, value) => { res.headers[key] = value; };
+  res.status = (code) => { res.code = code; return res; };
+  res.json = (body) => { res.body = body; return res; };
+  res.flushHeaders = () => { res.headersSent = true; };
+  return res;
 }
 
 test("backend validates requests and handles provider responses without exposing secrets", async (t) => {
@@ -32,11 +41,12 @@ test("backend validates requests and handles provider responses without exposing
     assert.equal(options.method, "POST");
     const payload = JSON.parse(options.body);
     assert.equal(payload.model, "deepseek-chat");
+    assert.equal(payload.stream, true);
     assert.deepEqual(payload.messages, [
       { role: "system", content: "You are JAFAI (Just Another Fucking AI). Speak in the Street Dialect with the calm, quiet confidence of a seasoned intelligence officer or a street-smart mentor. Be direct, matter-of-fact, and grounded. Avoid aggressive introductions, theatrical toughness, and lists of what you are not.\n\nWrite in natural, conversational paragraphs. Avoid excessive bold text and numbered lists for simple answers. Use a list only when necessary, with a maximum of 3 short bullet points.\n\nConserve Mana: the user may be tired. Be concise and give the structural truth directly. Keep answers short unless the user asks for depth or the subject needs it.\n\nKeep the Fear and Invoice diagnostic lens, the Street Dialect, and the refusal to use corporate smoothing or jargon. Apply the framework with calm clarity rather than aggression. Use Knowledge V1 for substance; these tone and formatting rules govern how you express it." },
       { role: "user", content: "Hello" },
     ]);
-    return { ok: true, json: async () => ({ choices: [{ message: { content: "Real reply" } }] }) };
+    return sseResponse();
   };
   let res = response();
   await handler({ method: "GET" }, res);
@@ -52,8 +62,9 @@ test("backend validates requests and handles provider responses without exposing
     res = response();
     await handler({ method: "POST", body }, res);
     assert.equal(res.code, 200);
-    assert.deepEqual(res.body, { reply: "Real reply" });
-    assert.equal(res.headers["Cache-Control"], "no-store");
+    assert.equal(Buffer.concat(res.chunks).toString(), await sseResponse().text());
+    assert.equal(res.headers["Content-Type"], "text/event-stream; charset=utf-8");
+    assert.equal(res.headers["Cache-Control"], "no-cache, no-store, no-transform");
   }
   delete process.env.DEEPSEEK_API_KEY;
   res = response();
@@ -96,7 +107,7 @@ test("Knowledge V1 is injected, with a warning and base prompt fallback on empty
   let sentPrompt;
   t.mock.method(global, "fetch", async (_url, options) => {
     sentPrompt = JSON.parse(options.body).messages[0].content;
-    return { ok: true, json: async () => ({ choices: [{ message: { content: "Answer" } }] }) };
+    return sseResponse("Answer");
   });
   const base = "You are JAFAI (Just Another Fucking AI). Speak in the Street Dialect with the calm, quiet confidence of a seasoned intelligence officer or a street-smart mentor. Be direct, matter-of-fact, and grounded. Avoid aggressive introductions, theatrical toughness, and lists of what you are not.\n\nWrite in natural, conversational paragraphs. Avoid excessive bold text and numbered lists for simple answers. Use a list only when necessary, with a maximum of 3 short bullet points.\n\nConserve Mana: the user may be tired. Be concise and give the structural truth directly. Keep answers short unless the user asks for depth or the subject needs it.\n\nKeep the Fear and Invoice diagnostic lens, the Street Dialect, and the refusal to use corporate smoothing or jargon. Apply the framework with calm clarity rather than aggression. Use Knowledge V1 for substance; these tone and formatting rules govern how you express it.";
   for (scenario of ["content", "empty", "missing", "unreadable"]) {
@@ -118,6 +129,8 @@ function frontend(fetchMock) {
       this.scrollHeight = 44; this.offsetHeight = 164;
       this.classList = { add() {} };
     }
+    set textContent(value) { this.text = value; this.children = []; }
+    get textContent() { return (this.text || "") + this.children.map(child => child.textContent).join(""); }
     addEventListener(name, fn) { this.events[name] = fn; }
     append(...nodes) { this.children.push(...nodes); }
     focus() {}
@@ -129,7 +142,7 @@ function frontend(fetchMock) {
   const nodes = { "#chat-form": form, "#message-input": input, "#messages": messages, "#empty-state": new Element(), ".composer-dock": new Element() };
   vm.runInNewContext(fs.readFileSync(require.resolve("../app.js"), "utf8"), {
     document: { querySelector: key => nodes[key], createElement: () => new Element(), documentElement: { style: { setProperty() {} } } },
-    ResizeObserver: class { observe() {} }, Date, AbortSignal, fetch: fetchMock,
+    ResizeObserver: class { observe() {} }, Date, AbortSignal, TextDecoder, fetch: fetchMock,
   });
   return { input, messages, button, submit: () => form.events.submit({ preventDefault() {} }) };
 }
@@ -153,9 +166,10 @@ test("frontend posts messages, prevents duplicate sends, and renders reply as li
   ui.input.value = "Next draft";
   await ui.submit();
   assert.equal(calls, 1);
-  resolveRequest({ ok: true, json: async () => ({ reply: "<b>Literal reply</b>" }) });
+  resolveRequest(sseResponse("<b>Literal reply</b>"));
   await pending;
   assert.equal(ui.messages.children[1].children[1].textContent, "<b>Literal reply</b>");
+  assert.equal(ui.messages.children[1].children[1].children[0].className, "fade-in-word");
   assert.equal(ui.input.value, "Next draft");
   assert.equal(ui.button.disabled, false);
 });
@@ -179,4 +193,85 @@ test("frontend shows errors, restores failed input, and preserves newer drafts",
     assert.equal(ui.input.value, mode === "new-draft" ? "New draft" : "Original");
     assert.equal(ui.button.disabled, false);
   }
+});
+
+test("frontend renders before completion and parses byte-split UTF-8 and CRLF SSE events", async () => {
+  let streamController;
+  let rendered;
+  const firstRendered = new Promise(resolve => { rendered = resolve; });
+  const ui = frontend(async () => new Response(new ReadableStream({ start(controller) { streamController = controller; } }), {
+    headers: { "Content-Type": "text/event-stream" },
+  }));
+  ui.input.value = "Hello";
+  const pending = ui.submit();
+  const reply = ui.messages.children[1].children[1];
+  const originalAppend = reply.append.bind(reply);
+  reply.append = (...nodes) => { originalAppend(...nodes); rendered(); };
+  const encoder = new TextEncoder();
+  const event = `: keep-alive\r\n\r\ndata: {"choices":[{"delta":{"role":"assistant"}}]}\r\n\r\ndata: ${JSON.stringify({ choices: [{ delta: { content: "Kia ora 🌋\n" } }] })}\r\n\r\n`;
+  for (const byte of encoder.encode(event)) streamController.enqueue(Uint8Array.of(byte));
+  await firstRendered;
+  assert.equal(reply.textContent, "Kia ora 🌋\n");
+  assert.equal(ui.button.disabled, true);
+  streamController.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"Next line"}}]}\n\ndata: [DONE]\n\n'));
+  // The client stops at [DONE] without waiting for the connection to close.
+  await pending;
+  assert.equal(reply.textContent, "Kia ora 🌋\nNext line");
+  assert.equal(reply.children.length, 2);
+  assert.equal(ui.button.disabled, true); // Empty composer after successful send.
+  assert.equal(reply["aria-busy"], "false");
+});
+
+test("frontend handles empty, malformed, and interrupted streams, preserving partial answers", async () => {
+  const cases = [
+    ['data: [DONE]\n\n', "empty response"],
+    ['data: {broken}\n\n', "invalid stream"],
+    ['data: {"error":{"message":"provider detail"}}\n\n', "interrupted"],
+    ['data: {"choices":[{"delta":{"content":"Partial answer"}}]}\n\n', "interrupted"],
+  ];
+  for (const [wire, expected] of cases) {
+    const ui = frontend(async () => new Response(wire, { headers: { "Content-Type": "text/event-stream" } }));
+    ui.input.value = "Question";
+    await ui.submit();
+    const reply = ui.messages.children[1].children[1];
+    assert.ok(reply.textContent.includes(expected));
+    if (wire.includes("Partial answer")) assert.ok(reply.textContent.startsWith("Partial answer\n\n"));
+    assert.equal(ui.input.value, "Question");
+    assert.equal(reply.role, "alert");
+    assert.equal(ui.button.disabled, false);
+  }
+});
+
+test("backend forwards bytes before upstream completes and aborts on client disconnect", async (t) => {
+  const originalKey = process.env.DEEPSEEK_API_KEY;
+  t.after(() => {
+    if (originalKey === undefined) delete process.env.DEEPSEEK_API_KEY;
+    else process.env.DEEPSEEK_API_KEY = originalKey;
+  });
+  process.env.DEEPSEEK_API_KEY = "test-secret";
+  t.mock.method(fs.promises, "readFile", async () => "Manual");
+  let upstream;
+  let signal;
+  let cancelled = false;
+  t.mock.method(global, "fetch", async (_url, options) => {
+    signal = options.signal;
+    return new Response(new ReadableStream({
+      start(controller) { upstream = controller; },
+      cancel() { cancelled = true; },
+    }));
+  });
+  const res = response();
+  const request = handler({ method: "POST", body: { message: "Hello" } }, res);
+  // Let the handler reach the reader, then provide only the first SSE event.
+  await new Promise(resolve => setImmediate(resolve));
+  const bytes = new TextEncoder().encode('data: {"choices":[{"delta":{"content":"First"}}]}\n\n');
+  upstream.enqueue(bytes);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(Buffer.concat(res.chunks), Buffer.from(bytes));
+  assert.equal(res.writableEnded, false);
+  res.destroy();
+  await request;
+  assert.equal(signal.aborted, true);
+  assert.equal(cancelled, true);
+  assert.equal(res.body, undefined); // Never mix JSON errors into a started stream.
 });

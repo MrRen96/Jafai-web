@@ -13,7 +13,11 @@ static-only server will display the UI but cannot run `/api/chat`.
 
 Type a message and press Enter or click the arrow to send. Shift+Enter adds a
 new line. The frontend posts `{ "message": "..." }` to `/api/chat`, which
-returns `{ "reply": "..." }` or a JSON `error`. Sending is disabled during a
+returns DeepSeek's raw server-sent events (SSE), or a JSON `error` before the
+stream begins. The browser decodes content deltas incrementally into fading
+text spans, scrolling as the answer grows. Reduced-motion preferences disable
+the animation. Interrupted streams retain partial text with an inline error.
+Sending is disabled during a
 request; failures appear inline and restore the message for retry if there
 is no newer draft. Messages exist only for the current page session.
 
