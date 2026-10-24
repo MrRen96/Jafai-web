@@ -131,6 +131,10 @@ footer p { margin: 0; color: #858585; font-size: 11px; line-height: 1.5; }
   footer p { font-size: 10px; }
 }
 @media (max-width: 760px) {
+  textarea { font-size: 16px; }
+  .app { min-height: var(--mobile-viewport-height, 100dvh); }
+  .messages { height: calc(var(--mobile-viewport-height, 100dvh) - 222px - var(--dock-height) - env(safe-area-inset-bottom)); min-height: 0; }
+  .composer-dock { bottom: var(--keyboard-inset, 0px); }
   body.sidebar-open { --sidebar-offset: 0px; }
   .history-sidebar { width: min(280px, calc(100vw - 48px)); }
   .sidebar-toggle { top: 20px; left: 14px; }

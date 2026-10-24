@@ -186,6 +186,9 @@ function frontend(fetchMock, options = {}) {
   const blobs = [];
   const revoked = [];
   const downloadCleanup = [];
+  const frames = [];
+  const cssProperties = new Map();
+  let activeElement = null;
   class Element {
     constructor() {
       this.style = {}; this.children = []; this.events = {}; this.value = "";
@@ -210,7 +213,9 @@ function frontend(fetchMock, options = {}) {
       if (deep) copy.append(...this.children.map(child => child.cloneNode(true)));
       return copy;
     }
-    focus() { this.focused = true; }
+    focus() { this.focused = true; activeElement = this; }
+    get lastElementChild() { return this.children.at(-1) || null; }
+    scrollIntoView(options) { this.scrollIntoViewCalls = (this.scrollIntoViewCalls || 0) + 1; this.scrollIntoViewOptions = options; }
     click() {
       this.clickCount = (this.clickCount || 0) + 1;
       if (this.download) downloads.push({ href: this.href, filename: this.download });
@@ -235,13 +240,21 @@ function frontend(fetchMock, options = {}) {
   const media = { matches: !!options.mobile, addEventListener() {} };
   const standaloneEvents = {};
   const standalone = { matches: !!options.standalone, addEventListener: (name, fn) => { standaloneEvents[name] = fn; } };
+  const viewportEvents = {};
+  const visualViewport = options.noVisualViewport ? undefined : {
+    height: 800, offsetTop: 0, scale: 1,
+    addEventListener: (name, fn) => { viewportEvents[name] = fn; },
+  };
+  const mockWindow = { innerHeight: 800, visualViewport, matchMedia: query => query === "(display-mode: standalone)" ? standalone : media, addEventListener: (name, fn) => { windowEvents[name] = fn; } };
   vm.runInNewContext(fs.readFileSync(require.resolve("../app.js"), "utf8"), {
     document: {
       querySelector: key => key === "#empty-state" ? messages.children.find(child => child.id === "empty-state") : nodes[key],
-      createElement: () => new Element(), documentElement: { style: { setProperty() {} } }, body,
+      createElement: () => new Element(), documentElement: { style: { setProperty: (name, value) => cssProperties.set(name, value), removeProperty: name => cssProperties.delete(name) } }, body,
+      get activeElement() { return activeElement; },
       addEventListener: (name, fn) => { documentEvents[name] = fn; },
     },
-    window: { matchMedia: query => query === "(display-mode: standalone)" ? standalone : media, addEventListener: (name, fn) => { windowEvents[name] = fn; } },
+    window: mockWindow,
+    requestAnimationFrame: fn => { frames.push(fn); return frames.length; },
     localStorage, crypto: require("node:crypto").webcrypto, clearTimeout, Blob, File,
     navigator: options.navigator || {},
     FileReader: class {
@@ -262,7 +275,8 @@ function frontend(fetchMock, options = {}) {
     },
     ResizeObserver: class { observe() {} }, Date, AbortSignal, AbortController, TextDecoder, fetch: fetchMock,
   });
-  return { input, messages, button, nodes, storage, body, documentEvents, windowEvents, downloads, blobs, revoked, downloadCleanup, standalone, standaloneEvents,
+  return { input, messages, button, nodes, storage, body, documentEvents, windowEvents, downloads, blobs, revoked, downloadCleanup, standalone, standaloneEvents, visualViewport, viewportEvents, cssProperties, mockWindow,
+    paint: () => { const queued = frames.splice(0); queued.forEach(fn => fn()); },
     submit: () => form.events.submit({ preventDefault() {} }),
     import: (file) => { nodes["#import-file"].files = file ? [file] : []; return nodes["#import-file"].events.change(); },
   };
@@ -773,6 +787,80 @@ test("service worker is registered at root scope after page load", () => {
   assert.equal(registrations.length, 0);
   ui.windowEvents.load();
   assert.deepEqual(registrations, [{ path: "/sw.js", scope: "/", updateViaCache: "none" }]);
+});
+
+test("mobile focus reveals the latest message and keyboard viewport changes reserve visible chat space", async () => {
+  const ui = frontend(async () => sseResponse("Latest answer"), { mobile: true });
+  ui.input.value = "Question";
+  await ui.submit();
+  const latest = ui.messages.lastElementChild;
+  ui.input.focus();
+  ui.input.events.focus();
+  ui.paint();
+  assert.equal(latest.scrollIntoViewOptions.block, "end");
+  assert.equal(latest.scrollIntoViewOptions.behavior, "instant");
+  ui.visualViewport.height = 450;
+  ui.visualViewport.offsetTop = 20;
+  ui.viewportEvents.resize();
+  ui.paint();
+  assert.equal(ui.cssProperties.get("--mobile-viewport-height"), "450px");
+  assert.equal(ui.cssProperties.get("--keyboard-inset"), "330px");
+  assert.ok(latest.scrollIntoViewCalls >= 2);
+  assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
+  ui.visualViewport.height = 800;
+  ui.visualViewport.offsetTop = 0;
+  ui.viewportEvents.resize();
+  ui.paint();
+  assert.equal(ui.cssProperties.get("--keyboard-inset"), "0px");
+  ui.visualViewport.scale = 2;
+  ui.visualViewport.height = 300;
+  ui.viewportEvents.resize();
+  ui.paint();
+  assert.equal(ui.cssProperties.get("--mobile-viewport-height"), "800px");
+});
+
+test("keyboard focus logic leaves desktop unchanged and supports mobile without VisualViewport", async () => {
+  const desktop = frontend(async () => sseResponse("Answer"));
+  desktop.input.value = "Question";
+  await desktop.submit();
+  desktop.input.events.focus();
+  desktop.visualViewport.height = 400;
+  desktop.viewportEvents.resize();
+  desktop.paint();
+  assert.equal(desktop.messages.lastElementChild.scrollIntoViewCalls, undefined);
+  assert.equal(desktop.cssProperties.has("--mobile-viewport-height"), false);
+  assert.equal(desktop.cssProperties.has("--keyboard-inset"), false);
+  const mobile = frontend(async () => sseResponse(), { mobile: true, noVisualViewport: true });
+  mobile.mockWindow.innerHeight = 450;
+  mobile.windowEvents.resize();
+  mobile.paint();
+  assert.equal(mobile.cssProperties.get("--mobile-viewport-height"), "450px");
+  assert.equal(mobile.cssProperties.get("--keyboard-inset"), "0px");
+});
+
+test("each streamed chunk forces scroll-to-bottom even after the user or keyboard changed scroll position", async () => {
+  let stream;
+  let painted;
+  const ui = frontend(async () => new Response(new ReadableStream({ start(controller) { stream = controller; } }), {
+    headers: { "Content-Type": "text/event-stream" },
+  }), { mobile: true });
+  ui.input.value = "Question";
+  const pending = ui.submit();
+  const reply = ui.messages.lastElementChild.children[1];
+  const append = reply.append.bind(reply);
+  reply.append = (...nodes) => { append(...nodes); ui.messages.scrollHeight += 100; painted(); };
+  for (const text of ["First chunk", "Second chunk"]) {
+    const arrived = new Promise(resolve => { painted = resolve; });
+    ui.messages.scrollTop = 0;
+    stream.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`));
+    await arrived;
+    assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
+    ui.messages.scrollTop = 0;
+    ui.paint();
+    assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
+  }
+  stream.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+  await pending;
 });
 
 test("backend forwards bytes before upstream completes and aborts on client disconnect", async (t) => {

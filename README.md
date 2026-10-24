@@ -32,6 +32,12 @@ returns DeepSeek's raw server-sent events (SSE), or a JSON `error` before the
 stream begins. The browser decodes content deltas incrementally into fading
 text spans, scrolling as the answer grows. Reduced-motion preferences disable
 the animation. Interrupted streams retain partial text with an inline error.
+On mobile, keyboard resizes update the visible chat height and composer offset.
+Input focus reveals the latest message, and each streamed chunk forces the chat
+to the bottom immediately and after the next mobile layout frame. The viewport
+meta tag requests `interactive-widget=resizes-content`; VisualViewport supplies
+a fallback for overlay keyboards. These layout adjustments are limited to the
+existing mobile breakpoint; desktop layout and focus behavior stay unchanged.
 Sending is disabled during a
 request; failures appear inline and restore the message for retry if there
 is no newer draft.

@@ -74,6 +74,51 @@ let saveTimer = null;
 let storageReadable = true;
 let isSending = false;
 let isExporting = false;
+let scrollFrame = null;
+let viewportFrame = null;
+
+function scrollChatToBottom() {
+  messages.scrollTop = messages.scrollHeight;
+  // Reapply after mobile layout changes have been painted, without smoothing.
+  if (mobileLayout.matches && scrollFrame === null) {
+    scrollFrame = requestAnimationFrame(() => {
+      scrollFrame = null;
+      messages.scrollTop = messages.scrollHeight;
+    });
+  }
+}
+
+function revealLatestMessage() {
+  if (!mobileLayout.matches) return;
+  messages.lastElementChild?.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" });
+  scrollChatToBottom();
+}
+
+function updateMobileViewport() {
+  const style = document.documentElement.style;
+  if (!mobileLayout.matches) {
+    style.removeProperty("--mobile-viewport-height");
+    style.removeProperty("--keyboard-inset");
+    return;
+  }
+  const viewport = window.visualViewport;
+  // Pinch zoom is not a keyboard resize; leave the user's zoom intact.
+  if (viewport && viewport.scale !== 1) return;
+  const height = viewport?.height || window.innerHeight;
+  const inset = Math.max(0, window.innerHeight - height - (viewport?.offsetTop || 0));
+  style.setProperty("--mobile-viewport-height", `${height}px`);
+  style.setProperty("--keyboard-inset", `${inset}px`);
+}
+
+function handleMobileViewportChange() {
+  if (!mobileLayout.matches || viewportFrame !== null) return;
+  viewportFrame = requestAnimationFrame(() => {
+    viewportFrame = null;
+    updateMobileViewport();
+    if (document.activeElement === input) revealLatestMessage();
+    else scrollChatToBottom();
+  });
+}
 
 function storageWarning(text) {
   storageStatus.textContent = text;
@@ -386,7 +431,7 @@ function appendMessage(author, content, timestamp = new Date().toISOString()) {
   body.textContent = content;
   message.append(meta, body);
   messages.append(message);
-  messages.scrollTop = messages.scrollHeight;
+  scrollChatToBottom();
   return body;
 }
 
@@ -506,7 +551,7 @@ form.addEventListener("submit", async (event) => {
       replyBody.append(span);
       assistantMessage.content += text;
       scheduleSave();
-      messages.scrollTop = messages.scrollHeight;
+      scrollChatToBottom();
     });
     if (currentRequest === request) assistantMessage.status = "complete";
   } catch (error) {
@@ -536,12 +581,20 @@ form.addEventListener("submit", async (event) => {
       isSending = false;
       saveSessions();
       updateComposer();
-      messages.scrollTop = messages.scrollHeight;
+      scrollChatToBottom();
     }
   }
 });
 
 input.addEventListener("input", updateComposer);
+input.addEventListener("focus", () => {
+  if (!mobileLayout.matches) return;
+  updateMobileViewport();
+  requestAnimationFrame(revealLatestMessage);
+});
+window.visualViewport?.addEventListener("resize", handleMobileViewportChange);
+window.visualViewport?.addEventListener("scroll", handleMobileViewportChange);
+window.addEventListener("resize", handleMobileViewportChange);
 input.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
     event.preventDefault();
@@ -552,7 +605,7 @@ input.addEventListener("keydown", (event) => {
 // Reserve the actual composer height as the textarea grows, including on mobile.
 new ResizeObserver(() => {
   document.documentElement.style.setProperty("--dock-height", `${dock.offsetHeight}px`);
-  messages.scrollTop = messages.scrollHeight;
+  scrollChatToBottom();
 }).observe(dock);
 
 sidebarToggle.addEventListener("click", () => setSidebar(true));
@@ -565,10 +618,14 @@ document.querySelector("#new-chat").addEventListener("click", () => selectSessio
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !sidebar.hidden) setSidebar(false);
 });
-mobileLayout.addEventListener("change", () => setSidebar(!mobileLayout.matches));
+mobileLayout.addEventListener("change", () => {
+  setSidebar(!mobileLayout.matches);
+  updateMobileViewport();
+});
 window.addEventListener("pagehide", saveSessions);
 loadSessions();
 renderHistory();
 renderConversation();
 setSidebar(!mobileLayout.matches);
 updateComposer();
+updateMobileViewport();
