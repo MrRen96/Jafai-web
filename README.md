@@ -11,7 +11,8 @@ overlap. Mobile uses the full viewport with small edge gutters and an overlay
 sidebar. The sidebar keeps square corners; message bubbles use 8px corners,
 the composer 12px, and Send 4px. Charcoal and Sunset Orange remain unchanged.
 
-The root manifest and service worker enable PWA installation. The header's
+The root manifest and service worker enable PWA installation. The gear above
+the sidebar's local-vault caption opens a compact Settings dialog. Its
 `[ Install App ]` action is hidden until the browser fires `beforeinstallprompt`.
 It opens that native prompt on click, hides after acceptance, and stays hidden
 in standalone mode (including iOS `navigator.standalone`). Dismissed prompts

@@ -39,6 +39,17 @@ body.sidebar-open { --sidebar-offset: 260px; }
 .sidebar-action:hover:enabled { color: var(--orange); background: #ffffff06; }
 .sidebar-action:focus-visible { color: var(--orange); outline: 1px solid var(--orange); outline-offset: 3px; }
 .sidebar-action:disabled { opacity: .45; cursor: default; }
+.sidebar-footer { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; flex-shrink: 0; }
+.settings-toggle { display: grid; place-items: center; width: 44px; height: 44px; margin-left: -10px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--orange); font-size: 22px; cursor: pointer; }
+.settings-toggle:hover { background: #ffffff06; }
+.settings-toggle:focus-visible, .settings-close:focus-visible { outline: 1px solid var(--orange); outline-offset: 3px; }
+.settings-dialog { width: min(360px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 20px; border: 1px solid #49403b; border-radius: 0; background: #111111; color: #e0e0e0; }
+.settings-dialog::backdrop { background: #0009; }
+.settings-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.settings-heading h2 { margin: 0; }
+.settings-close { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 0; background: transparent; color: #858585; font-size: 18px; cursor: pointer; }
+.settings-close:hover { color: var(--orange); }
+.settings-note { margin: 16px 0; color: #929292; font-size: 12px; line-height: 1.6; }
 .session-row { display: flex; align-items: stretch; margin-bottom: 8px; border-left: 2px solid transparent; }
 .session-row.is-active { border-color: var(--orange); background: #ff57220a; }
 .session-open { flex: 1; min-width: 0; padding: 12px 10px; border: 0; text-align: left; }
@@ -59,7 +70,7 @@ body.sidebar-open { --sidebar-offset: 260px; }
 .sidebar-open .header-brand { display: none; }
 .brand-copy { min-width: 0; }
 .brand-name { display: block; color: var(--orange); font-size: 13px; font-weight: 650; letter-spacing: .14em; }
-.install-app { display: none; flex-shrink: 0; margin-left: auto; border: 0; border-radius: 0; padding: 8px 0; background: #111111; color: var(--orange); font-size: 11px; line-height: 16px; cursor: pointer; }
+.install-app { display: none; border: 0; border-radius: 0; min-height: 44px; padding: 8px 0; background: #111111; color: var(--orange); font-size: 11px; line-height: 16px; cursor: pointer; }
 .install-app.is-available { display: inline-block; }
 .install-app:hover { background: #1a1a1a; }
 .install-app:focus-visible { outline: 1px solid var(--orange); outline-offset: 3px; }

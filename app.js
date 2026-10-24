@@ -14,6 +14,10 @@ const exportButton = document.querySelector("#export-chat");
 const importButton = document.querySelector("#import-chat");
 const importFile = document.querySelector("#import-file");
 const installButton = document.querySelector("#install-app");
+const settingsToggle = document.querySelector("#settings-toggle");
+const settingsDialog = document.querySelector("#settings-dialog");
+const settingsClose = document.querySelector("#settings-close");
+const installStatus = document.querySelector("#settings-install-status");
 const standaloneMode = window.matchMedia("(display-mode: standalone)");
 let deferredPrompt = null;
 let installCompleted = false;
@@ -21,7 +25,28 @@ let installCompleted = false;
 function updateInstallButton() {
   const visible = Boolean(deferredPrompt) && !installCompleted && !standaloneMode.matches && navigator.standalone !== true;
   installButton.classList.toggle("is-available", visible);
+  installStatus.textContent = visible
+    ? "Install JAFAI on this device."
+    : installCompleted || standaloneMode.matches || navigator.standalone === true
+      ? "JAFAI is already installed."
+      : "Use your browser's install or Add to Home Screen menu if installation is not offered here.";
 }
+
+settingsToggle.addEventListener("click", () => {
+  if (settingsDialog.open) return;
+  updateInstallButton();
+  settingsDialog.showModal();
+  settingsToggle.setAttribute("aria-expanded", "true");
+  settingsClose.focus();
+});
+settingsClose.addEventListener("click", () => settingsDialog.close());
+settingsDialog.addEventListener("click", (event) => {
+  if (event.target === settingsDialog) settingsDialog.close();
+});
+settingsDialog.addEventListener("close", () => {
+  settingsToggle.setAttribute("aria-expanded", "false");
+  (sidebarOpen ? settingsToggle : sidebarToggle).focus();
+});
 
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
@@ -638,6 +663,7 @@ document.querySelector("#sidebar-close").addEventListener("click", () => setSide
 sidebarBackdrop.addEventListener("click", () => setSidebar(false));
 document.querySelector("#new-chat").addEventListener("click", () => selectSession(null));
 document.addEventListener("keydown", (event) => {
+  if (settingsDialog.open) return; // Native dialog Escape handling takes priority.
   if (event.key === "Escape" && sidebarOpen) setSidebar(false);
 });
 mobileLayout.addEventListener("change", () => {

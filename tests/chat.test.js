@@ -224,12 +224,14 @@ function frontend(fetchMock, options = {}) {
     }
     remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
     setAttribute(key, value) { this[key] = value; }
+    showModal() { this.open = true; }
+    close() { this.open = false; this.events.close?.(); }
   }
   const form = new Element(), input = new Element(), messages = new Element(), button = new Element();
   form.querySelector = () => button;
   const empty = new Element(); empty.id = "empty-state"; messages.append(empty);
   const nodes = { "#chat-form": form, "#message-input": input, "#messages": messages, ".composer-dock": new Element(), ".app": new Element() };
-  for (const id of ["session-list", "history-sidebar", "sidebar-toggle", "sidebar-backdrop", "storage-status", "sidebar-close", "new-chat", "export-chat", "import-chat", "import-file", "install-app"]) nodes[`#${id}`] = new Element();
+  for (const id of ["session-list", "history-sidebar", "sidebar-toggle", "sidebar-backdrop", "storage-status", "sidebar-close", "new-chat", "export-chat", "import-chat", "import-file", "install-app", "settings-toggle", "settings-dialog", "settings-close", "settings-install-status"]) nodes[`#${id}`] = new Element();
   nodes["#storage-status"].hidden = true;
   const storage = options.storage || new Map();
   const localStorage = {
@@ -844,6 +846,36 @@ test("mobile send dismisses the keyboard and scrolls after 150ms while desktop r
   assert.equal(desktop.input.blurred, undefined);
   assert.equal(desktop.input.focusOptions.preventScroll, true);
   assert.equal(desktop.keyboardTimers.length, 0);
+});
+
+test("settings dialog opens from the sidebar, preserves install prompts, and restores focus on close", async () => {
+  const ui = frontend(async () => sseResponse());
+  const gear = ui.nodes["#settings-toggle"];
+  const dialog = ui.nodes["#settings-dialog"];
+  gear.events.click();
+  assert.equal(dialog.open, true);
+  assert.equal(gear["aria-expanded"], "true");
+  assert.equal(ui.nodes["#settings-close"].focused, true);
+  assert.ok(ui.nodes["#settings-install-status"].textContent.includes("browser"));
+  let prompts = 0;
+  ui.windowEvents.beforeinstallprompt({
+    preventDefault() {}, prompt: async () => { prompts++; },
+    userChoice: Promise.resolve({ outcome: "accepted" }),
+  });
+  assert.ok(ui.nodes["#install-app"].className.includes("is-available"));
+  await ui.nodes["#install-app"].events.click();
+  assert.equal(prompts, 1);
+  assert.ok(ui.nodes["#settings-install-status"].textContent.includes("already installed"));
+  // Escape belongs to the native dialog, not the sidebar shortcut.
+  ui.documentEvents.keydown({ key: "Escape" });
+  assert.equal(ui.nodes["#history-sidebar"].inert, false);
+  ui.nodes["#settings-close"].events.click();
+  assert.equal(dialog.open, false);
+  assert.equal(gear["aria-expanded"], "false");
+  assert.equal(gear.focused, true);
+  gear.events.click();
+  dialog.events.click({ target: dialog });
+  assert.equal(dialog.open, false);
 });
 
 test("mobile focus reveals the latest message and keyboard viewport changes reserve visible chat space", async () => {
