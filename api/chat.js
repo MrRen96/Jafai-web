@@ -1,6 +1,22 @@
 "use strict";
 
+const fs = require("node:fs/promises");
+const path = require("node:path");
+
 const SYSTEM_PROMPT = "You are JAFAI (Just Another Fucking AI). Speak in the Street Dialect. Be direct, brutalist, and unfiltered. Do not use corporate jargon or tone-policing.";
+
+async function buildSystemPrompt() {
+  try {
+    const knowledge = (await fs.readFile(path.join(process.cwd(), "knowledge-v1.txt"), "utf8")).trim();
+    if (knowledge) {
+      return `${SYSTEM_PROMPT}\n\nHere is your Knowledge Base (Knowledge V1). Use it to inform your answers, but do not quote it word-for-word unless necessary:\n${knowledge}`;
+    }
+    console.warn("[JAFAI] knowledge-v1.txt is empty. Using the base system prompt.");
+  } catch (error) {
+    console.warn(`[JAFAI] Could not read knowledge-v1.txt (${error.code || "read error"}). Using the base system prompt.`);
+  }
+  return SYSTEM_PROMPT;
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -28,6 +44,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    const systemPrompt = await buildSystemPrompt();
     const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -37,7 +54,7 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         model: "deepseek-chat",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: message.trim() },
         ],
         stream: false,

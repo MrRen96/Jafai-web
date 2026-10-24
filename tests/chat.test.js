@@ -14,6 +14,8 @@ function response() {
 }
 
 test("backend validates requests and handles provider responses without exposing secrets", async (t) => {
+  t.mock.method(fs.promises, "readFile", async () => "");
+  t.mock.method(console, "warn", () => {});
   const originalKey = process.env.DEEPSEEK_API_KEY;
   const originalFetch = global.fetch;
   t.after(() => {
@@ -72,6 +74,40 @@ test("backend validates requests and handles provider responses without exposing
     await handler({ method: "POST", body: { message: "Hello" } }, res);
     assert.equal(res.code, expected);
     assert.ok(!JSON.stringify(res.body).includes("test-secret"));
+  }
+});
+
+test("Knowledge V1 is injected, with a warning and base prompt fallback on empty or unreadable files", async (t) => {
+  const originalKey = process.env.DEEPSEEK_API_KEY;
+  t.after(() => {
+    if (originalKey === undefined) delete process.env.DEEPSEEK_API_KEY;
+    else process.env.DEEPSEEK_API_KEY = originalKey;
+  });
+  process.env.DEEPSEEK_API_KEY = "test-secret";
+  let scenario;
+  const warning = t.mock.method(console, "warn", () => {});
+  t.mock.method(fs.promises, "readFile", async (filename, encoding) => {
+    assert.equal(filename, require("node:path").join(process.cwd(), "knowledge-v1.txt"));
+    assert.equal(encoding, "utf8");
+    if (scenario === "missing") throw Object.assign(new Error(), { code: "ENOENT" });
+    if (scenario === "unreadable") throw Object.assign(new Error(), { code: "EACCES" });
+    return scenario === "content" ? "  Manual text.\nSecond paragraph.  " : " \n\t";
+  });
+  let sentPrompt;
+  t.mock.method(global, "fetch", async (_url, options) => {
+    sentPrompt = JSON.parse(options.body).messages[0].content;
+    return { ok: true, json: async () => ({ choices: [{ message: { content: "Answer" } }] }) };
+  });
+  const base = "You are JAFAI (Just Another Fucking AI). Speak in the Street Dialect. Be direct, brutalist, and unfiltered. Do not use corporate jargon or tone-policing.";
+  for (scenario of ["content", "empty", "missing", "unreadable"]) {
+    const before = warning.mock.callCount();
+    const res = response();
+    await handler({ method: "POST", body: { message: "Hello" } }, res);
+    assert.equal(res.code, 200);
+    assert.equal(sentPrompt, scenario === "content"
+      ? `${base}\n\nHere is your Knowledge Base (Knowledge V1). Use it to inform your answers, but do not quote it word-for-word unless necessary:\nManual text.\nSecond paragraph.`
+      : base);
+    assert.equal(warning.mock.callCount() - before, scenario === "content" ? 0 : 1);
   }
 });
 
