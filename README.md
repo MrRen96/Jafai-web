@@ -2,13 +2,14 @@
 
 A vanilla HTML, CSS, and JavaScript chat frontend with a Vercel Serverless backend.
 
-The chat and composer share a left-aligned, full-width layout capped at 1200px
-on wide displays. A compact header replaces the large centered logo; branding
+The chat and composer share a centered 900px reading column within the main
+panel beside the sidebar. A compact header replaces the large centered logo; branding
 lives in the sidebar and reappears at the top left when the sidebar is closed.
 The viewport uses a flex column: the conversation scrolls in the remaining space
 above the bottom composer, without fixed header-height calculations or composer
 overlap. Mobile uses the full viewport with small edge gutters and an overlay
-sidebar. UI surfaces use square corners, charcoal, and Sunset Orange.
+sidebar. The sidebar keeps square corners; message bubbles use 8px corners,
+the composer 12px, and Send 4px. Charcoal and Sunset Orange remain unchanged.
 
 The root manifest and service worker enable PWA installation. The header's
 `[ Install App ]` action is hidden until the browser fires `beforeinstallprompt`.

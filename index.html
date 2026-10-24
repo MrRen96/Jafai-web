@@ -41,37 +41,39 @@
         <button class="install-app" id="install-app" type="button">[ Install App ]</button>
       </header>
 
-      <main class="conversation" aria-label="Conversation">
-        <div class="conversation-tools">
-          <button class="export-chat" id="import-chat" type="button">[ Import Chat ]</button>
-          <button class="export-chat" id="export-chat" type="button" disabled>[ Export Chat ]</button>
-          <input id="import-file" type="file" accept=".txt,text/plain" aria-label="Import a JAFAI text chat" hidden>
-        </div>
-        <div class="messages" id="messages" role="log" aria-label="Chat messages" aria-live="polite" aria-relevant="additions">
-          <section class="empty-state" id="empty-state">
-            <span class="eyebrow">JAFAI / CHAT</span>
-            <h1>Less noise.<br>More conversation.</h1>
-            <p>Say what’s on your mind.</p>
-          </section>
-        </div>
-      </main>
+      <div class="chat-panel">
+        <main class="conversation" aria-label="Conversation">
+          <div class="conversation-tools">
+            <button class="export-chat" id="import-chat" type="button">[ Import Chat ]</button>
+            <button class="export-chat" id="export-chat" type="button" disabled>[ Export Chat ]</button>
+            <input id="import-file" type="file" accept=".txt,text/plain" aria-label="Import a JAFAI text chat" hidden>
+          </div>
+          <div class="messages" id="messages" role="log" aria-label="Chat messages" aria-live="polite" aria-relevant="additions">
+            <section class="empty-state" id="empty-state">
+              <span class="eyebrow">JAFAI / CHAT</span>
+              <h1>Less noise.<br>More conversation.</h1>
+              <p>Say what’s on your mind.</p>
+            </section>
+          </div>
+        </main>
 
-      <div class="composer-dock">
-        <form class="composer" id="chat-form">
-          <label class="sr-only" for="message-input">Message JAFAI</label>
-          <textarea id="message-input" name="message" placeholder="Type a message…" rows="1" maxlength="10000" enterkeyhint="send" aria-describedby="keyboard-hint"></textarea>
-          <button class="send-button" type="submit" aria-label="Send message" title="Send message" disabled>
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="m5 12 7-7 7 7M12 5v14"/>
-            </svg>
-          </button>
-        </form>
-        <p class="storage-status" id="storage-status" role="status" hidden></p>
-        <p class="keyboard-hint" id="keyboard-hint">Enter to send <span aria-hidden="true">·</span> Shift + Enter for a new line</p>
-        <footer>
-          <span class="status-dot" aria-hidden="true"></span>
-          <p>Cloud API Active. Do not input sensitive data.</p>
-        </footer>
+        <div class="composer-dock">
+          <form class="composer" id="chat-form">
+            <label class="sr-only" for="message-input">Message JAFAI</label>
+            <textarea id="message-input" name="message" placeholder="Type a message…" rows="1" maxlength="10000" enterkeyhint="send" aria-describedby="keyboard-hint"></textarea>
+            <button class="send-button" type="submit" aria-label="Send message" title="Send message" disabled>
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m5 12 7-7 7 7M12 5v14"/>
+              </svg>
+            </button>
+          </form>
+          <p class="storage-status" id="storage-status" role="status" hidden></p>
+          <p class="keyboard-hint" id="keyboard-hint">Enter to send <span aria-hidden="true">·</span> Shift + Enter for a new line</p>
+          <footer>
+            <span class="status-dot" aria-hidden="true"></span>
+            <p>Cloud API Active. Do not input sensitive data.</p>
+          </footer>
+        </div>
       </div>
     </div>
   </body>
