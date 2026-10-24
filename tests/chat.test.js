@@ -181,29 +181,60 @@ test("Knowledge folder loads sorted text files and falls back safely for empty o
   }
 });
 
-function frontend(fetchMock) {
+function frontend(fetchMock, options = {}) {
   class Element {
     constructor() {
       this.style = {}; this.children = []; this.events = {}; this.value = "";
       this.scrollHeight = 44; this.offsetHeight = 164;
-      this.classList = { add() {} };
+      this.classList = {
+        add: (name) => { this.className = `${this.className || ""} ${name}`.trim(); },
+        toggle: (name, active) => {
+          const classes = new Set((this.className || "").split(" ").filter(Boolean));
+          if (active) classes.add(name); else classes.delete(name);
+          this.className = [...classes].join(" ");
+        },
+      };
     }
     set textContent(value) { this.text = value; this.children = []; }
     get textContent() { return (this.text || "") + this.children.map(child => child.textContent).join(""); }
     addEventListener(name, fn) { this.events[name] = fn; }
-    append(...nodes) { this.children.push(...nodes); }
-    focus() {}
-    remove() {}
+    append(...nodes) { for (const node of nodes) { node.parent = this; this.children.push(node); } }
+    replaceChildren(...nodes) { this.children = []; this.text = ""; this.append(...nodes); }
+    cloneNode(deep) {
+      const copy = new Element();
+      copy.id = this.id; copy.className = this.className; copy.text = this.text;
+      if (deep) copy.append(...this.children.map(child => child.cloneNode(true)));
+      return copy;
+    }
+    focus() { this.focused = true; }
+    remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
     setAttribute(key, value) { this[key] = value; }
   }
   const form = new Element(), input = new Element(), messages = new Element(), button = new Element();
   form.querySelector = () => button;
-  const nodes = { "#chat-form": form, "#message-input": input, "#messages": messages, "#empty-state": new Element(), ".composer-dock": new Element() };
+  const empty = new Element(); empty.id = "empty-state"; messages.append(empty);
+  const nodes = { "#chat-form": form, "#message-input": input, "#messages": messages, ".composer-dock": new Element(), ".app": new Element() };
+  for (const id of ["session-list", "history-sidebar", "sidebar-toggle", "sidebar-backdrop", "storage-status", "sidebar-close", "new-chat"]) nodes[`#${id}`] = new Element();
+  const storage = options.storage || new Map();
+  const localStorage = {
+    getItem: key => { if (options.blocked) throw new Error("Blocked storage"); return storage.get(key) ?? null; },
+    setItem: (key, value) => { if (options.full) throw new Error("Quota exceeded"); storage.set(key, value); },
+  };
+  const body = new Element();
+  const documentEvents = {};
+  const windowEvents = {};
+  const media = { matches: !!options.mobile, addEventListener() {} };
   vm.runInNewContext(fs.readFileSync(require.resolve("../app.js"), "utf8"), {
-    document: { querySelector: key => nodes[key], createElement: () => new Element(), documentElement: { style: { setProperty() {} } } },
-    ResizeObserver: class { observe() {} }, Date, AbortSignal, TextDecoder, fetch: fetchMock,
+    document: {
+      querySelector: key => key === "#empty-state" ? messages.children.find(child => child.id === "empty-state") : nodes[key],
+      createElement: () => new Element(), documentElement: { style: { setProperty() {} } }, body,
+      addEventListener: (name, fn) => { documentEvents[name] = fn; },
+    },
+    window: { matchMedia: () => media, addEventListener: (name, fn) => { windowEvents[name] = fn; } },
+    localStorage, crypto: require("node:crypto").webcrypto, setTimeout, clearTimeout,
+    ResizeObserver: class { observe() {} }, Date, AbortSignal, AbortController, TextDecoder, fetch: fetchMock,
   });
-  return { input, messages, button, submit: () => form.events.submit({ preventDefault() {} }) };
+  return { input, messages, button, nodes, storage, body, documentEvents, windowEvents, submit: () => form.events.submit({ preventDefault() {} }) };
 }
 
 test("frontend posts messages, prevents duplicate sends, and renders reply as literal text", async () => {
@@ -299,6 +330,125 @@ test("frontend handles empty, malformed, and interrupted streams, preserving par
     assert.equal(reply.role, "alert");
     assert.equal(ui.button.disabled, false);
   }
+});
+
+test("local history creates sessions on first send, restores them, switches, and deletes", async () => {
+  const key = "jafai.chatSessions.v1";
+  const ui = frontend(async () => sseResponse("Saved reply"));
+  const firstText = "A first message longer than thirty characters";
+  ui.nodes["#new-chat"].events.click();
+  assert.equal(ui.storage.get(key), "[]");
+  ui.input.value = firstText;
+  await ui.submit();
+  let saved = JSON.parse(ui.storage.get(key));
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].title, firstText.slice(0, 30));
+  assert.ok(saved[0].id);
+  assert.ok(Number.isFinite(Date.parse(saved[0].timestamp)));
+  assert.deepEqual(saved[0].messages.map(message => message.content), [firstText, "Saved reply"]);
+  assert.equal(saved[0].messages[1].status, "complete");
+  const firstId = saved[0].id;
+  const firstTimestamp = saved[0].messages[0].timestamp;
+  ui.input.value = "Follow-up";
+  await ui.submit();
+  saved = JSON.parse(ui.storage.get(key));
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].messages.length, 4);
+  assert.equal(saved[0].title, firstText.slice(0, 30));
+
+  ui.nodes["#new-chat"].events.click();
+  assert.equal(JSON.parse(ui.storage.get(key)).length, 1);
+  assert.equal(ui.messages.children[0].id, "empty-state");
+  ui.input.value = "<img src=x onerror=alert(1)>";
+  await ui.submit();
+  saved = JSON.parse(ui.storage.get(key));
+  assert.equal(saved.length, 2);
+  assert.notEqual(saved[0].id, firstId);
+  assert.equal(ui.nodes["#session-list"].children[0].children[0].children[0].textContent, saved[0].title);
+
+  const reloaded = frontend(async () => sseResponse(), { storage: ui.storage });
+  assert.equal(reloaded.messages.children[0].children[1].textContent, saved[0].messages[0].content);
+  reloaded.nodes["#session-list"].children[1].children[0].events.click();
+  assert.equal(reloaded.messages.children.length, 4);
+  assert.equal(reloaded.messages.children[0].children[1].textContent, firstText);
+  assert.equal(reloaded.messages.children[0].children[0].children[1].dateTime, firstTimestamp);
+  assert.equal(reloaded.nodes["#session-list"].children[1].children[0]["aria-current"], "true");
+  reloaded.nodes["#session-list"].children[1].children[1].events.click();
+  assert.equal(JSON.parse(ui.storage.get(key)).length, 1);
+  assert.equal(reloaded.messages.children[0].children[1].textContent, saved[0].messages[0].content);
+  reloaded.nodes["#session-list"].children[0].children[1].events.click();
+  assert.equal(ui.storage.get(key), "[]");
+  assert.equal(reloaded.messages.children[0].id, "empty-state");
+});
+
+test("switching sessions stops a stream without stale writes or resurrecting deleted chats", async () => {
+  let resolveRequest;
+  let signal;
+  const ui = frontend((_url, options) => {
+    signal = options.signal;
+    return new Promise(resolve => { resolveRequest = resolve; });
+  });
+  ui.input.value = "Old question";
+  const pending = ui.submit();
+  const oldId = JSON.parse(ui.storage.get("jafai.chatSessions.v1"))[0].id;
+  ui.nodes["#new-chat"].events.click();
+  assert.equal(signal.aborted, true);
+  assert.equal(ui.messages.children[0].id, "empty-state");
+  ui.nodes["#session-list"].children[0].children[1].events.click();
+  resolveRequest(sseResponse("Stale answer"));
+  await pending;
+  assert.equal(ui.storage.get("jafai.chatSessions.v1"), "[]");
+  assert.equal(ui.messages.children[0].id, "empty-state");
+  assert.ok(!ui.storage.get("jafai.chatSessions.v1").includes(oldId));
+  ui.input.value = "New question";
+  ui.input.events.input();
+  assert.equal(ui.button.disabled, false);
+});
+
+test("reloading during streaming recovers partial text as interrupted history", () => {
+  const key = "jafai.chatSessions.v1";
+  const storage = new Map([[key, JSON.stringify([{
+    id: "partial", title: "Question", timestamp: "2026-10-24T00:00:00.000Z",
+    messages: [{ role: "assistant", content: "Partial text", timestamp: "2026-10-24T00:00:00.000Z", status: "streaming" }],
+  }])]]);
+  const ui = frontend(async () => sseResponse(), { storage });
+  assert.ok(ui.messages.children[0].children[1].textContent.startsWith("Partial text\n\nResponse interrupted."));
+  ui.windowEvents.pagehide();
+  assert.equal(JSON.parse(storage.get(key))[0].messages[0].status, "interrupted");
+});
+
+test("blocked, full, or corrupt localStorage does not break chat or silently destroy existing data", async () => {
+  for (const mode of ["blocked", "full", "corrupt"]) {
+    const storage = new Map();
+    if (mode === "corrupt") storage.set("jafai.chatSessions.v1", "invalid JSON");
+    const ui = frontend(async () => sseResponse("Still works"), { storage, blocked: mode === "blocked", full: mode === "full" });
+    ui.input.value = "Hello";
+    await ui.submit();
+    assert.equal(ui.messages.children[1].children[1].textContent, "Still works");
+    assert.equal(ui.nodes["#storage-status"].hidden, false);
+    if (mode === "corrupt") assert.equal(storage.get("jafai.chatSessions.v1"), "invalid JSON");
+  }
+});
+
+test("sidebar collapses on desktop and overlays mobile without creating empty chats", () => {
+  const desktop = frontend(async () => sseResponse());
+  assert.equal(desktop.nodes["#history-sidebar"].hidden, false);
+  desktop.nodes["#sidebar-close"].events.click();
+  assert.equal(desktop.nodes["#history-sidebar"].hidden, true);
+  assert.equal(desktop.nodes["#sidebar-toggle"]["aria-expanded"], "false");
+  desktop.nodes["#sidebar-toggle"].events.click();
+  assert.equal(desktop.nodes["#history-sidebar"].hidden, false);
+  desktop.documentEvents.keydown({ key: "Escape" });
+  assert.equal(desktop.nodes["#history-sidebar"].hidden, true);
+  const mobile = frontend(async () => sseResponse(), { mobile: true });
+  assert.equal(mobile.nodes["#history-sidebar"].hidden, true);
+  mobile.nodes["#sidebar-toggle"].events.click();
+  assert.equal(mobile.nodes["#sidebar-backdrop"].hidden, false);
+  assert.equal(mobile.nodes[".app"].inert, true);
+  mobile.nodes["#new-chat"].events.click();
+  assert.equal(mobile.nodes["#history-sidebar"].hidden, true);
+  assert.equal(mobile.nodes[".app"].inert, false);
+  assert.equal(mobile.storage.get("jafai.chatSessions.v1"), "[]");
 });
 
 test("backend forwards bytes before upstream completes and aborts on client disconnect", async (t) => {

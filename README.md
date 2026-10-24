@@ -19,7 +19,24 @@ text spans, scrolling as the answer grows. Reduced-motion preferences disable
 the animation. Interrupted streams retain partial text with an inline error.
 Sending is disabled during a
 request; failures appear inline and restore the message for retry if there
-is no newer draft. Messages exist only for the current page session.
+is no newer draft.
+
+Chat sessions are saved in this browser's `localStorage` under
+`jafai.chatSessions.v1`. Each session contains an ID, the first 30 characters of
+its first user message as its title, a last-message timestamp, and messages
+with roles, content, timestamps, and delivery status. The last selected session
+is remembered under `jafai.activeSession.v1`. New Chat creates a session only
+when the first message is sent. The sidebar restores, selects, and deletes
+saved sessions. Switching chats stops an in-flight response and keeps partial
+text; deleting the active chat also stops it. Streaming text is saved at most
+every 200ms and flushed when the response ends or the page is hidden.
+
+The history vault is client-side only; no database, account, or history-sync
+API is involved. Browser storage is specific to the site's origin and browser
+profile; clearing site data removes it. Storage failures show an inline notice
+and leave the current chat usable in memory. Malformed stored history is left
+untouched. History remains on the device; each send still posts only the current
+message to the existing cloud endpoint, rather than the saved transcript.
 
 The backend sends the current message and the JAFAI system prompt to
 `https://api.deepseek.com/v1/chat/completions` using `deepseek-chat`, exactly as
