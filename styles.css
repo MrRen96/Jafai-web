@@ -66,6 +66,8 @@ body.sidebar-open { --sidebar-offset: 260px; }
 .header { flex: 0 0 64px; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px var(--chat-gutter) 8px 64px; }
 .sidebar-open .header { padding-left: var(--chat-gutter); }
 .sidebar-brand, .header-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sidebar-wordmark { display: block; height: 35px; width: auto; max-width: 130px; object-fit: contain; flex-shrink: 0; }
+.sidebar-close { flex-shrink: 0; }
 .header-brand { flex: 1; }
 .sidebar-open .header-brand { display: none; }
 .brand-copy { min-width: 0; }
