@@ -68,9 +68,9 @@ body.sidebar-open { --sidebar-offset: 260px; }
 .sidebar-brand, .header-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .sidebar-brand { position: relative; width: 164px; height: 44px; flex-shrink: 0; overflow: hidden; }
 /* Account for the supplied image's outer padding, aligning its visible lettering. */
-.sidebar-wordmark { position: absolute; display: block; width: 200px; height: auto; max-width: none; left: -15px; top: 50%; transform: translateY(-47%); }
+.sidebar-wordmark, .header-wordmark { position: absolute; display: block; width: 200px; height: auto; max-width: none; left: -15px; top: 50%; transform: translateY(-47%); }
 .sidebar-close { flex-shrink: 0; }
-.header-brand { flex: 1; }
+.header-brand { position: relative; width: 164px; height: 44px; flex: 0 0 164px; overflow: hidden; }
 .sidebar-open .header-brand { display: none; }
 .brand-copy { min-width: 0; }
 .brand-name { display: block; color: var(--orange); font-size: 13px; font-weight: 650; letter-spacing: .14em; }
