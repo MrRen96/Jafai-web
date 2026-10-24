@@ -21,7 +21,7 @@ body.sidebar-open { --sidebar-offset: 260px; }
 .sidebar-toggle, .sidebar-close, .new-chat, .session-open, .session-delete {
   border-radius: 0; color: #e0e0e0; background: transparent; cursor: pointer;
 }
-.sidebar-toggle { position: fixed; left: 16px; top: 12px; z-index: 4; width: 36px; height: 40px; display: grid; place-items: center; border: 0; }
+.sidebar-toggle { position: fixed; left: 16px; top: 12px; z-index: 4; width: 44px; height: 44px; display: grid; place-items: center; border: 0; color: #858585; transition: color .15s ease-out; }
 .sidebar-toggle:hover, .session-delete:hover { color: var(--orange); border-color: var(--orange); }
 .sidebar-open .sidebar-toggle { display: none; }
 .history-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 5; width: 260px; padding: 24px 16px max(20px, env(safe-area-inset-bottom)); background: #111111; border-right: 1px solid #39302c; display: flex; flex-direction: column; gap: 24px; transform: translateX(0); visibility: visible; transition: transform .3s ease-in-out, visibility 0s; }
@@ -66,7 +66,9 @@ body.sidebar-open { --sidebar-offset: 260px; }
 .header { flex: 0 0 64px; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px var(--chat-gutter) 8px 64px; }
 .sidebar-open .header { padding-left: var(--chat-gutter); }
 .sidebar-brand, .header-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.sidebar-wordmark { display: block; height: 35px; width: auto; max-width: 130px; object-fit: contain; flex-shrink: 0; }
+.sidebar-brand { position: relative; width: 164px; height: 44px; flex-shrink: 0; overflow: hidden; }
+/* Account for the supplied image's outer padding, aligning its visible lettering. */
+.sidebar-wordmark { position: absolute; display: block; width: 200px; height: auto; max-width: none; left: -15px; top: 50%; transform: translateY(-47%); }
 .sidebar-close { flex-shrink: 0; }
 .header-brand { flex: 1; }
 .sidebar-open .header-brand { display: none; }
