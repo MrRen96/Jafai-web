@@ -78,6 +78,9 @@ body.sidebar-open { --sidebar-offset: 260px; }
   scrollbar-width: thin;
   scrollbar-color: #39302c transparent;
   padding: 12px 4px 24px;
+  scroll-padding-bottom: 24px;
+  scroll-behavior: auto;
+  overflow-anchor: none;
 }
 .empty-state { padding: clamp(36px, 10vh, 100px) 16px 24px; }
 .eyebrow { color: var(--orange); font-size: 10px; font-weight: 650; letter-spacing: .2em; }

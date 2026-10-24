@@ -213,7 +213,7 @@ function frontend(fetchMock, options = {}) {
       if (deep) copy.append(...this.children.map(child => child.cloneNode(true)));
       return copy;
     }
-    focus() { this.focused = true; activeElement = this; }
+    focus(options) { this.focused = true; this.focusOptions = options; activeElement = this; }
     get lastElementChild() { return this.children.at(-1) || null; }
     scrollIntoView(options) { this.scrollIntoViewCalls = (this.scrollIntoViewCalls || 0) + 1; this.scrollIntoViewOptions = options; }
     click() {
@@ -249,7 +249,7 @@ function frontend(fetchMock, options = {}) {
   vm.runInNewContext(fs.readFileSync(require.resolve("../app.js"), "utf8"), {
     document: {
       querySelector: key => key === "#empty-state" ? messages.children.find(child => child.id === "empty-state") : nodes[key],
-      createElement: () => new Element(), documentElement: { style: { setProperty: (name, value) => cssProperties.set(name, value), removeProperty: name => cssProperties.delete(name) } }, body,
+      createElement: tag => { const element = new Element(); element.tagName = tag.toUpperCase(); return element; }, documentElement: { style: { setProperty: (name, value) => cssProperties.set(name, value), removeProperty: name => cssProperties.delete(name) } }, body,
       get activeElement() { return activeElement; },
       addEventListener: (name, fn) => { documentEvents[name] = fn; },
     },
@@ -787,6 +787,33 @@ test("service worker is registered at root scope after page load", () => {
   assert.equal(registrations.length, 0);
   ui.windowEvents.load();
   assert.deepEqual(registrations, [{ path: "/sw.js", scope: "/", updateViaCache: "none" }]);
+});
+
+test("send paints the user message, clears input, and reveals the response div before starting the API request", async () => {
+  const sequence = [];
+  let ui;
+  ui = frontend(async () => {
+    sequence.push("fetch");
+    assert.equal(ui.input.value, "");
+    assert.equal(ui.messages.lastElementChild.children[1].tagName, "DIV");
+    assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
+    assert.equal(ui.cssProperties.get("--dock-height"), "164px");
+    assert.equal(ui.input.focusOptions.preventScroll, true);
+    assert.equal(ui.messages.lastElementChild.scrollIntoViewOptions.block, "end");
+    return sseResponse("Reply");
+  }, { mobile: true });
+  const append = ui.messages.append.bind(ui.messages);
+  ui.messages.append = (...nodes) => {
+    for (const node of nodes) {
+      sequence.push({ author: node.children[0].children[0].textContent, input: ui.input.value });
+    }
+    append(...nodes);
+    ui.messages.scrollHeight += 100;
+  };
+  ui.input.value = "Question";
+  await ui.submit();
+  assert.deepEqual(sequence, [{ author: "You", input: "Question" }, { author: "JAFAI", input: "" }, "fetch"]);
+  assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
 });
 
 test("mobile focus reveals the latest message and keyboard viewport changes reserve visible chat space", async () => {

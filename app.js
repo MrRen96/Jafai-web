@@ -426,7 +426,7 @@ function appendMessage(author, content, timestamp = new Date().toISOString()) {
   time.textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   meta.append(name, time);
 
-  const body = document.createElement("p");
+  const body = document.createElement(author === "JAFAI" ? "div" : "p");
   body.className = "message-body";
   body.textContent = content;
   message.append(meta, body);
@@ -511,15 +511,20 @@ form.addEventListener("submit", async (event) => {
   session.messages.push(userMessage, assistantMessage);
   const request = { controller: new AbortController(), reply: assistantMessage };
   currentRequest = request;
-  saveSessions();
-  renderHistory();
   document.querySelector("#empty-state")?.remove();
   appendMessage("You", text, userMessage.timestamp);
   input.value = "";
   updateComposer();
   const replyBody = appendMessage("JAFAI", "Thinking…", assistantMessage.timestamp);
   replyBody.setAttribute("aria-busy", "true");
-  input.focus();
+  input.focus({ preventScroll: true });
+  // Measure the cleared composer now rather than waiting for ResizeObserver.
+  document.documentElement.style.setProperty("--dock-height", `${dock.offsetHeight}px`);
+  updateMobileViewport();
+  if (mobileLayout.matches) revealLatestMessage();
+  scrollChatToBottom();
+  saveSessions();
+  renderHistory();
   let hasReply = false;
 
   try {
@@ -549,9 +554,10 @@ form.addEventListener("submit", async (event) => {
       span.className = "fade-in-word";
       span.textContent = text;
       replyBody.append(span);
+      // Every delta must reveal its final line before any persistence work.
+      scrollChatToBottom();
       assistantMessage.content += text;
       scheduleSave();
-      scrollChatToBottom();
     });
     if (currentRequest === request) assistantMessage.status = "complete";
   } catch (error) {
