@@ -517,7 +517,17 @@ form.addEventListener("submit", async (event) => {
   updateComposer();
   const replyBody = appendMessage("JAFAI", "Thinking…", assistantMessage.timestamp);
   replyBody.setAttribute("aria-busy", "true");
-  input.focus({ preventScroll: true });
+  if (mobileLayout.matches) {
+    input.blur();
+    document.activeElement?.blur();
+    setTimeout(() => {
+      if (activeSessionId !== session.id) return;
+      updateMobileViewport();
+      scrollChatToBottom();
+    }, 150);
+  } else {
+    input.focus({ preventScroll: true });
+  }
   // Measure the cleared composer now rather than waiting for ResizeObserver.
   document.documentElement.style.setProperty("--dock-height", `${dock.offsetHeight}px`);
   updateMobileViewport();

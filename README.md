@@ -34,8 +34,11 @@ text spans, scrolling as the answer grows. Reduced-motion preferences disable
 the animation. Interrupted streams retain partial text with an inline error.
 On mobile, keyboard resizes update the visible chat height and composer offset.
 Input focus reveals the latest message, and each streamed chunk forces the chat
-to the bottom immediately and after the next mobile layout frame. The viewport
-meta tag requests `interactive-widget=resizes-content`; VisualViewport supplies
+to the bottom immediately and after the next mobile layout frame.
+On mobile, Send blurs the input to dismiss the keyboard, then rechecks viewport
+size and scrolls again after 150ms. The mobile chat's bottom padding tracks the
+measured composer height. Desktop Send retains its existing input focus.
+The viewport meta tag requests `interactive-widget=resizes-content`; VisualViewport supplies
 a fallback for overlay keyboards. These layout adjustments are limited to the
 existing mobile breakpoint; desktop layout and focus behavior stay unchanged.
 Sending is disabled during a

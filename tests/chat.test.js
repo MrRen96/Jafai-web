@@ -186,6 +186,7 @@ function frontend(fetchMock, options = {}) {
   const blobs = [];
   const revoked = [];
   const downloadCleanup = [];
+  const keyboardTimers = [];
   const frames = [];
   const cssProperties = new Map();
   let activeElement = null;
@@ -214,6 +215,7 @@ function frontend(fetchMock, options = {}) {
       return copy;
     }
     focus(options) { this.focused = true; this.focusOptions = options; activeElement = this; }
+    blur() { this.blurred = true; if (activeElement === this) activeElement = null; }
     get lastElementChild() { return this.children.at(-1) || null; }
     scrollIntoView(options) { this.scrollIntoViewCalls = (this.scrollIntoViewCalls || 0) + 1; this.scrollIntoViewOptions = options; }
     click() {
@@ -271,11 +273,12 @@ function frontend(fetchMock, options = {}) {
     },
     setTimeout: (fn, delay) => {
       if (delay === 1000) { downloadCleanup.push(fn); return 0; }
+      if (delay === 150) { keyboardTimers.push(fn); return 0; }
       return setTimeout(fn, delay);
     },
     ResizeObserver: class { observe() {} }, Date, AbortSignal, AbortController, TextDecoder, fetch: fetchMock,
   });
-  return { input, messages, button, nodes, storage, body, documentEvents, windowEvents, downloads, blobs, revoked, downloadCleanup, standalone, standaloneEvents, visualViewport, viewportEvents, cssProperties, mockWindow,
+  return { input, messages, button, nodes, storage, body, documentEvents, windowEvents, downloads, blobs, revoked, downloadCleanup, standalone, standaloneEvents, visualViewport, viewportEvents, cssProperties, mockWindow, keyboardTimers,
     paint: () => { const queued = frames.splice(0); queued.forEach(fn => fn()); },
     submit: () => form.events.submit({ preventDefault() {} }),
     import: (file) => { nodes["#import-file"].files = file ? [file] : []; return nodes["#import-file"].events.change(); },
@@ -798,7 +801,7 @@ test("send paints the user message, clears input, and reveals the response div b
     assert.equal(ui.messages.lastElementChild.children[1].tagName, "DIV");
     assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
     assert.equal(ui.cssProperties.get("--dock-height"), "164px");
-    assert.equal(ui.input.focusOptions.preventScroll, true);
+    assert.equal(ui.input.blurred, true);
     assert.equal(ui.messages.lastElementChild.scrollIntoViewOptions.block, "end");
     return sseResponse("Reply");
   }, { mobile: true });
@@ -814,6 +817,29 @@ test("send paints the user message, clears input, and reveals the response div b
   await ui.submit();
   assert.deepEqual(sequence, [{ author: "You", input: "Question" }, { author: "JAFAI", input: "" }, "fetch"]);
   assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
+});
+
+test("mobile send dismisses the keyboard and scrolls after 150ms while desktop retains focus", async () => {
+  const mobile = frontend(async () => sseResponse("Answer"), { mobile: true });
+  mobile.input.focus();
+  mobile.input.value = "Question";
+  mobile.visualViewport.height = 450;
+  await mobile.submit();
+  assert.equal(mobile.input.blurred, true);
+  assert.equal(mobile.keyboardTimers.length, 1);
+  mobile.visualViewport.height = 800;
+  mobile.messages.scrollHeight = 900;
+  mobile.messages.scrollTop = 0;
+  mobile.keyboardTimers[0]();
+  assert.equal(mobile.messages.scrollTop, 900);
+  assert.equal(mobile.cssProperties.get("--keyboard-inset"), "0px");
+  assert.equal(mobile.cssProperties.get("--mobile-viewport-height"), "800px");
+  const desktop = frontend(async () => sseResponse("Answer"));
+  desktop.input.value = "Question";
+  await desktop.submit();
+  assert.equal(desktop.input.blurred, undefined);
+  assert.equal(desktop.input.focusOptions.preventScroll, true);
+  assert.equal(desktop.keyboardTimers.length, 0);
 });
 
 test("mobile focus reveals the latest message and keyboard viewport changes reserve visible chat space", async () => {
