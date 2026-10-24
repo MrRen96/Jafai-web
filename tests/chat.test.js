@@ -222,7 +222,7 @@ function frontend(fetchMock, options = {}) {
   form.querySelector = () => button;
   const empty = new Element(); empty.id = "empty-state"; messages.append(empty);
   const nodes = { "#chat-form": form, "#message-input": input, "#messages": messages, ".composer-dock": new Element(), ".app": new Element() };
-  for (const id of ["session-list", "history-sidebar", "sidebar-toggle", "sidebar-backdrop", "storage-status", "sidebar-close", "new-chat", "export-chat", "import-chat", "import-file"]) nodes[`#${id}`] = new Element();
+  for (const id of ["session-list", "history-sidebar", "sidebar-toggle", "sidebar-backdrop", "storage-status", "sidebar-close", "new-chat", "export-chat", "import-chat", "import-file", "install-app"]) nodes[`#${id}`] = new Element();
   nodes["#storage-status"].hidden = true;
   const storage = options.storage || new Map();
   const localStorage = {
@@ -233,13 +233,15 @@ function frontend(fetchMock, options = {}) {
   const documentEvents = {};
   const windowEvents = {};
   const media = { matches: !!options.mobile, addEventListener() {} };
+  const standaloneEvents = {};
+  const standalone = { matches: !!options.standalone, addEventListener: (name, fn) => { standaloneEvents[name] = fn; } };
   vm.runInNewContext(fs.readFileSync(require.resolve("../app.js"), "utf8"), {
     document: {
       querySelector: key => key === "#empty-state" ? messages.children.find(child => child.id === "empty-state") : nodes[key],
       createElement: () => new Element(), documentElement: { style: { setProperty() {} } }, body,
       addEventListener: (name, fn) => { documentEvents[name] = fn; },
     },
-    window: { matchMedia: () => media, addEventListener: (name, fn) => { windowEvents[name] = fn; } },
+    window: { matchMedia: query => query === "(display-mode: standalone)" ? standalone : media, addEventListener: (name, fn) => { windowEvents[name] = fn; } },
     localStorage, crypto: require("node:crypto").webcrypto, clearTimeout, Blob, File,
     navigator: options.navigator || {},
     FileReader: class {
@@ -260,7 +262,7 @@ function frontend(fetchMock, options = {}) {
     },
     ResizeObserver: class { observe() {} }, Date, AbortSignal, AbortController, TextDecoder, fetch: fetchMock,
   });
-  return { input, messages, button, nodes, storage, body, documentEvents, windowEvents, downloads, blobs, revoked, downloadCleanup,
+  return { input, messages, button, nodes, storage, body, documentEvents, windowEvents, downloads, blobs, revoked, downloadCleanup, standalone, standaloneEvents,
     submit: () => form.events.submit({ preventDefault() {} }),
     import: (file) => { nodes["#import-file"].files = file ? [file] : []; return nodes["#import-file"].events.change(); },
   };
@@ -710,6 +712,67 @@ test("Import Chat invokes the native file input synchronously", () => {
   assert.equal(ui.nodes["#import-file"].value, "");
   assert.equal(ui.nodes["#import-file"].clickCount, 1);
   assert.equal(ui.downloads.length, 0);
+});
+
+test("install button defers the browser prompt, installs once, and hides after acceptance", async () => {
+  const ui = frontend(async () => sseResponse());
+  const button = ui.nodes["#install-app"];
+  assert.ok(!(button.className || "").includes("is-available"));
+  let prevented = false;
+  let prompts = 0;
+  ui.windowEvents.beforeinstallprompt({
+    preventDefault() { prevented = true; },
+    prompt: async () => { prompts++; },
+    userChoice: Promise.resolve({ outcome: "accepted" }),
+  });
+  assert.equal(prevented, true);
+  assert.ok(button.className.includes("is-available"));
+  const install = button.events.click();
+  await button.events.click();
+  await install;
+  assert.equal(prompts, 1);
+  assert.ok(!button.className.includes("is-available"));
+  ui.windowEvents.beforeinstallprompt({ preventDefault() {} });
+  assert.ok(!button.className.includes("is-available"));
+});
+
+test("dismissed install prompts cannot be reused; installed and standalone apps stay hidden", async () => {
+  const ui = frontend(async () => sseResponse());
+  let prompts = 0;
+  const event = {
+    preventDefault() {}, prompt: async () => { prompts++; },
+    userChoice: Promise.resolve({ outcome: "dismissed" }),
+  };
+  ui.windowEvents.beforeinstallprompt(event);
+  await ui.nodes["#install-app"].events.click();
+  await ui.nodes["#install-app"].events.click();
+  assert.equal(prompts, 1);
+  assert.ok(!ui.nodes["#install-app"].className.includes("is-available"));
+  ui.windowEvents.beforeinstallprompt(event);
+  assert.ok(ui.nodes["#install-app"].className.includes("is-available"));
+  ui.windowEvents.appinstalled();
+  assert.ok(!ui.nodes["#install-app"].className.includes("is-available"));
+  for (const options of [{ standalone: true }, { navigator: { standalone: true } }]) {
+    const installed = frontend(async () => sseResponse(), options);
+    installed.windowEvents.beforeinstallprompt(event);
+    await installed.nodes["#install-app"].events.click();
+    assert.ok(!(installed.nodes["#install-app"].className || "").includes("is-available"));
+  }
+  const transitioning = frontend(async () => sseResponse());
+  transitioning.windowEvents.beforeinstallprompt(event);
+  transitioning.standalone.matches = true;
+  transitioning.standaloneEvents.change();
+  assert.ok(!transitioning.nodes["#install-app"].className.includes("is-available"));
+});
+
+test("service worker is registered at root scope after page load", () => {
+  const registrations = [];
+  const ui = frontend(async () => sseResponse(), {
+    navigator: { serviceWorker: { register: async (path, options) => { registrations.push({ path, ...options }); } } },
+  });
+  assert.equal(registrations.length, 0);
+  ui.windowEvents.load();
+  assert.deepEqual(registrations, [{ path: "/sw.js", scope: "/", updateViaCache: "none" }]);
 });
 
 test("backend forwards bytes before upstream completes and aborts on client disconnect", async (t) => {

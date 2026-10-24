@@ -13,6 +13,56 @@ const storageStatus = document.querySelector("#storage-status");
 const exportButton = document.querySelector("#export-chat");
 const importButton = document.querySelector("#import-chat");
 const importFile = document.querySelector("#import-file");
+const installButton = document.querySelector("#install-app");
+const standaloneMode = window.matchMedia("(display-mode: standalone)");
+let deferredPrompt = null;
+let installCompleted = false;
+
+function updateInstallButton() {
+  const visible = Boolean(deferredPrompt) && !installCompleted && !standaloneMode.matches && navigator.standalone !== true;
+  installButton.classList.toggle("is-available", visible);
+}
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  if (installCompleted || standaloneMode.matches || navigator.standalone === true) return;
+  deferredPrompt = event;
+  updateInstallButton();
+});
+
+installButton.addEventListener("click", async () => {
+  if (!deferredPrompt || installButton.disabled || standaloneMode.matches || navigator.standalone === true) return;
+  const prompt = deferredPrompt;
+  deferredPrompt = null; // A browser install event can only be used once.
+  installButton.disabled = true;
+  try {
+    await prompt.prompt();
+    const choice = await prompt.userChoice;
+    if (choice.outcome === "accepted") installCompleted = true;
+  } catch {
+    storageWarning("The install prompt could not open. Try your browser's install menu.");
+  } finally {
+    installButton.disabled = false;
+    updateInstallButton();
+  }
+});
+
+window.addEventListener("appinstalled", () => {
+  installCompleted = true;
+  deferredPrompt = null;
+  updateInstallButton();
+});
+standaloneMode.addEventListener("change", () => {
+  if (standaloneMode.matches) deferredPrompt = null;
+  updateInstallButton();
+});
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" })
+      .catch(() => console.warn("[JAFAI] App shell could not be cached for offline use."));
+  });
+}
 const mobileLayout = window.matchMedia("(max-width: 760px)");
 const STORAGE_KEY = "jafai.chatSessions.v1";
 const ACTIVE_KEY = "jafai.activeSession.v1";

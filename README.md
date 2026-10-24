@@ -2,6 +2,21 @@
 
 A vanilla HTML, CSS, and JavaScript chat frontend with a Vercel Serverless backend.
 
+The root manifest and service worker enable PWA installation. The header's
+`[ Install App ]` action is hidden until the browser fires `beforeinstallprompt`.
+It opens that native prompt on click, hides after acceptance, and stays hidden
+in standalone mode (including iOS `navigator.standalone`). Dismissed prompts
+are single-use; the button waits for the browser to offer a new one. Browsers
+without this event, including iOS Safari, use their own Add to Home Screen menu.
+
+The service worker caches only the public shell (HTML, CSS, JS, logo, manifest,
+and app icons). It tries the network first and uses cached assets when offline.
+Chat API requests, knowledge files, and chat history are never intercepted or
+cached by it. Offline users can browse their local history and import/export
+chats; new AI responses require an internet connection. Old JAFAI shell caches
+are removed on worker activation; localStorage is retained. Installation and
+service worker support require HTTPS (or localhost during development).
+
 Deploy this directory to Vercel using the Other framework preset, no build
 command, and the project root as the output directory. Add `DEEPSEEK_API_KEY`
 in the project's environment variables for the environments you use, then
