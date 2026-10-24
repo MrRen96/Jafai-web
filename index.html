@@ -63,6 +63,8 @@
 
         <div class="composer-dock">
           <form class="composer" id="chat-form">
+            <button class="attach-image" id="attach-image" type="button" aria-label="Attach image" title="Attach JPEG, PNG, GIF or WebP (maximum 1 MB)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m8 13 6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l9-9M6 15l8-8"/></svg></button>
+            <input id="image-file" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
             <label class="sr-only" for="message-input">Message JAFAI</label>
             <textarea id="message-input" name="message" placeholder="Say what's on your mind..." rows="1" maxlength="10000" enterkeyhint="send" aria-describedby="keyboard-hint"></textarea>
             <button class="send-button" type="submit" aria-label="Send message" title="Send message" disabled>
@@ -71,6 +73,8 @@
               </svg>
             </button>
           </form>
+          <div class="image-attachment" id="image-attachment" hidden><img id="image-preview" alt="Selected image"><span id="image-name"></span><button id="remove-image" type="button" aria-label="Remove attached image">×</button></div>
+          <p class="image-status" id="image-status" role="status" hidden></p>
           <p class="storage-status" id="storage-status" role="status" hidden></p>
           <div class="composer-footer">
             <p class="keyboard-hint" id="keyboard-hint">Enter to send <span aria-hidden="true">·</span> Shift + Enter for a new line</p>

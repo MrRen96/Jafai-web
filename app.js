@@ -3,7 +3,65 @@
 const form = document.querySelector("#chat-form");
 const input = document.querySelector("#message-input");
 const messages = document.querySelector("#messages");
-const sendButton = form.querySelector("button");
+const sendButton = form.querySelector(".send-button");
+const attachButton = document.querySelector("#attach-image");
+const imageFile = document.querySelector("#image-file");
+const imageAttachment = document.querySelector("#image-attachment");
+const imagePreview = document.querySelector("#image-preview");
+const imageName = document.querySelector("#image-name");
+const imageStatus = document.querySelector("#image-status");
+let pendingImage = null;
+let imageReadVersion = 0;
+let isReadingImage = false;
+const MAX_IMAGE_BYTES = 1024 * 1024;
+
+function validImage(data) {
+  return typeof data === "string" && data.length <= 1400000
+    && /^data:image\/(jpeg|png|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(data);
+}
+
+function clearImage() {
+  imageReadVersion++;
+  isReadingImage = false;
+  pendingImage = null;
+  imageFile.value = "";
+  imagePreview.src = "";
+  imageAttachment.hidden = true;
+  imageStatus.hidden = true;
+}
+
+attachButton.addEventListener("click", () => { imageFile.value = ""; imageFile.click(); });
+document.querySelector("#remove-image").addEventListener("click", () => { clearImage(); updateComposer(); });
+imageFile.addEventListener("change", async () => {
+  const file = imageFile.files?.[0];
+  if (!file || isSending) return;
+  clearImage();
+  const version = imageReadVersion;
+  try {
+    if (!["image/jpeg", "image/png", "image/gif", "image/webp"].includes(file.type)) throw new Error("Choose a JPEG, PNG, GIF or WebP image.");
+    if (!file.size || file.size > MAX_IMAGE_BYTES) throw new Error("Choose an image no larger than 1 MB.");
+    isReadingImage = true;
+    updateComposer();
+    const data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reader.onabort = () => reject(new Error("This image could not be read. Please select it again."));
+      reader.readAsDataURL(file);
+    });
+    if (version !== imageReadVersion) return;
+    if (!validImage(data)) throw new Error("This image could not be read. Please select it again.");
+    pendingImage = data;
+    imagePreview.src = data;
+    imageName.textContent = file.name;
+    imageAttachment.hidden = false;
+  } catch (error) {
+    if (version !== imageReadVersion) return;
+    imageStatus.textContent = error.message;
+    imageStatus.hidden = false;
+  } finally {
+    if (version === imageReadVersion) { isReadingImage = false; updateComposer(); }
+  }
+});
 const dock = document.querySelector(".composer-dock");
 const sessionList = document.querySelector("#session-list");
 const sidebar = document.querySelector("#history-sidebar");
@@ -173,6 +231,7 @@ function loadSessions() {
           const interrupted = message.status === "streaming";
           return {
             role: message.role,
+            ...(message.role === "user" && validImage(message.image) ? { image: message.image } : {}),
             content: interrupted ? `${message.content}${message.content ? "\n\n" : ""}Response interrupted. Send your message again to retry.` : message.content,
             timestamp: message.timestamp,
             status: interrupted ? "interrupted" : message.status === "error" || message.status === "interrupted" ? message.status : "complete",
@@ -380,6 +439,7 @@ function renderConversation() {
   if (!session?.messages.length) messages.append(emptyState.cloneNode(true));
   for (const message of session?.messages || []) {
     const body = appendMessage(message.role === "user" ? "You" : "JAFAI", message.content, message.timestamp);
+    if (message.role === "user" && validImage(message.image)) appendImage(body, message.image);
     if (["error", "interrupted"].includes(message.status)) body.classList.add("message-body--error");
   }
 }
@@ -400,6 +460,7 @@ function selectSession(id) {
   if (id !== null && !sessions.some((session) => session.id === id)) return;
   if (id !== activeSessionId) stopResponse();
   activeSessionId = id;
+  clearImage();
   input.value = "";
   renderHistory();
   // Selecting the currently streaming chat must not detach its live bubble.
@@ -415,6 +476,7 @@ function deleteSession(id) {
   if (wasActive) stopResponse();
   sessions = sessions.filter((session) => session.id !== id);
   if (wasActive) {
+    clearImage();
     activeSessionId = sessions[0]?.id || null;
     input.value = "";
     renderConversation();
@@ -441,8 +503,18 @@ function setSidebar(open) {
 function updateComposer() {
   input.style.height = "auto";
   input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
-  sendButton.disabled = isSending || !input.value.trim();
+  sendButton.disabled = isSending || isReadingImage || (!input.value.trim() && !pendingImage);
+  attachButton.disabled = isSending || isReadingImage;
   exportButton.disabled = isExporting || !sessions.some((session) => session.id === activeSessionId && session.messages.some((message) => message.content.trim()));
+}
+
+function appendImage(body, image) {
+  const preview = document.createElement("img");
+  preview.className = "message-image";
+  preview.src = image;
+  preview.alt = "Attached image";
+  preview.addEventListener("load", scrollChatToBottom);
+  body.append(preview);
 }
 
 function appendMessage(author, content, timestamp = new Date().toISOString()) {
@@ -527,8 +599,9 @@ async function readChatStream(response, onText) {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const text = input.value.trim();
-  if (!text || isSending) return;
+  const image = pendingImage;
+  const text = input.value.trim() || (image ? "Analyze this image structurally." : "");
+  if (!text || isSending || isReadingImage) return;
 
   isSending = true;
   let session = sessions.find((item) => item.id === activeSessionId);
@@ -542,12 +615,15 @@ form.addEventListener("submit", async (event) => {
   }
   session.timestamp = new Date().toISOString();
   const userMessage = { role: "user", content: text, timestamp: new Date().toISOString(), status: "complete" };
+  if (image) userMessage.image = image;
   const assistantMessage = { role: "assistant", content: "", timestamp: new Date().toISOString(), status: "streaming" };
   session.messages.push(userMessage, assistantMessage);
   const request = { controller: new AbortController(), reply: assistantMessage };
   currentRequest = request;
   document.querySelector("#empty-state")?.remove();
-  appendMessage("You", text, userMessage.timestamp);
+  const userBody = appendMessage("You", text, userMessage.timestamp);
+  if (image) appendImage(userBody, image);
+  clearImage();
   input.value = "";
   updateComposer();
   const replyBody = appendMessage("JAFAI", "Thinking…", assistantMessage.timestamp);
@@ -573,15 +649,18 @@ form.addEventListener("submit", async (event) => {
   let hasReply = false;
 
   try {
+    const payload = JSON.stringify({
+      message: text,
+      ...(image ? { image } : {}),
+      history: session.messages.slice(0, -2)
+        .filter((message) => message.status === "complete" && message.content.trim())
+        .map((message) => ({ role: message.role, content: message.content, ...(message.image ? { image: message.image } : {}) })),
+    });
+    if (new Blob([payload]).size > 4000000) throw new Error("This conversation's images exceed the upload limit. Start a new chat to continue.");
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: text,
-        history: session.messages.slice(0, -2)
-          .filter((message) => message.status === "complete" && message.content.trim())
-          .map((message) => ({ role: message.role, content: message.content })),
-      }),
+      body: payload,
       signal: AbortSignal.any([request.controller.signal, AbortSignal.timeout(35000)]),
     });
     if (currentRequest !== request) {
@@ -625,6 +704,12 @@ form.addEventListener("submit", async (event) => {
     assistantMessage.status = "error";
     // Preserve the failed message for retry without replacing a new draft.
     if (!input.value) input.value = text;
+    if (image && !pendingImage) {
+      pendingImage = image;
+      imagePreview.src = image;
+      imageName.textContent = "Image ready to retry";
+      imageAttachment.hidden = false;
+    }
   } finally {
     if (currentRequest === request) {
       replyBody.setAttribute("aria-busy", "false");

@@ -139,8 +139,18 @@ body.sidebar-open { --sidebar-offset: 260px; }
 }
 .composer { display: flex; align-items: flex-end; gap: 12px; padding: 10px 10px 10px 18px; border: 1px solid #49403b; border-radius: 12px; background: #181818; transition: border-color .18s, box-shadow .18s; }
 .composer:focus-within { border-color: var(--orange); box-shadow: 0 0 0 1px #ff57221a, 0 0 24px #ff57221c; }
-textarea { display: block; width: 100%; min-height: 44px; max-height: 160px; resize: none; border: 0; outline: none; padding: 11px 0; background: transparent; color: #e0e0e0; font-size: 15px; line-height: 22px; }
+textarea { display: block; flex: 1; min-width: 0; width: 100%; min-height: 44px; max-height: 160px; resize: none; border: 0; outline: none; padding: 11px 0; background: transparent; color: #e0e0e0; font-size: 15px; line-height: 22px; }
 textarea::placeholder { color: #858585; }
+.attach-image { display: grid; place-items: center; flex: 0 0 44px; height: 44px; padding: 0; border: 0; background: transparent; color: #858585; cursor: pointer; }
+.attach-image:hover:enabled, #remove-image:hover { color: var(--orange); }
+.attach-image:disabled { opacity: .4; cursor: default; }
+.attach-image:focus-visible, #remove-image:focus-visible { outline: 1px solid var(--orange); outline-offset: 2px; }
+.image-attachment { display: flex; align-items: center; gap: 10px; margin-top: 8px; color: #929292; font-size: 12px; }
+.image-attachment img { width: 48px; height: 48px; object-fit: contain; }
+.image-attachment span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#remove-image { width: 44px; height: 44px; border: 0; background: transparent; color: #858585; cursor: pointer; }
+.image-status { margin: 8px 0 0; font-size: 12px; color: #efb0a7; }
+.message-image { display: block; max-width: 100%; max-height: 320px; object-fit: contain; margin-top: 12px; }
 .send-button { display: grid; place-items: center; flex: 0 0 44px; height: 44px; border: 0; border-radius: 4px; color: #fff; background: var(--orange); cursor: pointer; transition: background .18s, box-shadow .18s; }
 .send-button:hover:enabled { background: #ee4817; box-shadow: 0 0 18px #ff572233; }
 .send-button:active:enabled { background: var(--red); }

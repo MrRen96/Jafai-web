@@ -98,16 +98,24 @@ files up to 1 MB and transcripts up to 1,000 messages / 500,000 content characte
 Invalid files leave the existing sessions intact and show an inline error.
 
 The backend sends the active conversation's history, current message, and JAFAI system prompt to
-`https://api.deepseek.com/v1/chat/completions` using `deepseek-chat`, exactly as
-requested. History accepts only `user` and `assistant` roles, with a maximum of
+`https://api.deepseek.com/v1/chat/completions` using `deepseek-flash`.
+History accepts only `user` and `assistant` roles, with a maximum of
 1,000 messages and 500,000 characters. Oversized history is rejected rather than
 silently truncated; the provider's context limit still applies alongside the knowledge base.
 The provider request times out after 25 seconds; the function allows 30 seconds.
 No SDK or runtime dependencies are required (use a current Vercel Node.js runtime).
 
-The model name is deliberately fixed to the requested `deepseek-chat`; current
-DeepSeek documentation lists newer model names. Verify its availability with
-your account before relying on it in production.
+The paperclip selects one JPEG, PNG, GIF or WebP image (maximum 1 MiB).
+FileReader converts it to a data URL; a preview and remove action appear before
+sending. Image-only messages use a default structural-analysis prompt. Images
+are saved with the local session and included in subsequent requests for context;
+browser storage quota warnings still apply. Plain-text exports contain the text
+conversation only and do not include image attachments.
+The backend validates image MIME types, base64, signatures and size, then sends
+OpenAI-compatible text/image_url blocks for user messages. Requests are limited
+to 4,000,000 bytes to stay below Vercel's function payload limit; start a new chat
+if accumulated images exceed this. No separate image storage service is used.
+Selected images are sent to DeepSeek when the user sends the message.
 
 Run `node --test` to exercise the backend and frontend with mocked requests.
 
