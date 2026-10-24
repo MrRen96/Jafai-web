@@ -480,21 +480,25 @@ test("blocked, full, or corrupt localStorage does not break chat or silently des
 
 test("sidebar collapses on desktop and overlays mobile without creating empty chats", () => {
   const desktop = frontend(async () => sseResponse());
-  assert.equal(desktop.nodes["#history-sidebar"].hidden, false);
+  assert.equal(desktop.nodes["#history-sidebar"].inert, false);
   desktop.nodes["#sidebar-close"].events.click();
-  assert.equal(desktop.nodes["#history-sidebar"].hidden, true);
+  assert.equal(desktop.nodes["#history-sidebar"].inert, true);
+  assert.equal(desktop.nodes["#history-sidebar"]["aria-hidden"], "true");
+  assert.ok(desktop.nodes["#history-sidebar"].className.includes("sidebar-closed"));
   assert.equal(desktop.nodes["#sidebar-toggle"]["aria-expanded"], "false");
   desktop.nodes["#sidebar-toggle"].events.click();
-  assert.equal(desktop.nodes["#history-sidebar"].hidden, false);
+  assert.equal(desktop.nodes["#history-sidebar"].inert, false);
+  assert.equal(desktop.nodes["#history-sidebar"]["aria-hidden"], "false");
+  assert.ok(!desktop.nodes["#history-sidebar"].className.includes("sidebar-closed"));
   desktop.documentEvents.keydown({ key: "Escape" });
-  assert.equal(desktop.nodes["#history-sidebar"].hidden, true);
+  assert.equal(desktop.nodes["#history-sidebar"].inert, true);
   const mobile = frontend(async () => sseResponse(), { mobile: true });
-  assert.equal(mobile.nodes["#history-sidebar"].hidden, true);
+  assert.equal(mobile.nodes["#history-sidebar"].inert, true);
   mobile.nodes["#sidebar-toggle"].events.click();
   assert.equal(mobile.nodes["#sidebar-backdrop"].hidden, false);
   assert.equal(mobile.nodes[".app"].inert, true);
   mobile.nodes["#new-chat"].events.click();
-  assert.equal(mobile.nodes["#history-sidebar"].hidden, true);
+  assert.equal(mobile.nodes["#history-sidebar"].inert, true);
   assert.equal(mobile.nodes[".app"].inert, false);
   assert.equal(mobile.storage.get("jafai.chatSessions.v1"), "[]");
 });

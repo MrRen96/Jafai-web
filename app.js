@@ -76,6 +76,7 @@ let isSending = false;
 let isExporting = false;
 let scrollFrame = null;
 let viewportFrame = null;
+let sidebarOpen = false;
 
 function scrollChatToBottom() {
   messages.scrollTop = messages.scrollHeight;
@@ -396,7 +397,10 @@ function deleteSession(id) {
 }
 
 function setSidebar(open) {
-  sidebar.hidden = !open;
+  sidebarOpen = open;
+  sidebar.classList.toggle("sidebar-closed", !open);
+  sidebar.inert = !open;
+  sidebar.setAttribute("aria-hidden", String(!open));
   sidebarBackdrop.hidden = !open || !mobileLayout.matches;
   document.querySelector(".app").inert = open && mobileLayout.matches;
   document.body.classList.toggle("sidebar-open", open);
@@ -634,7 +638,7 @@ document.querySelector("#sidebar-close").addEventListener("click", () => setSide
 sidebarBackdrop.addEventListener("click", () => setSidebar(false));
 document.querySelector("#new-chat").addEventListener("click", () => selectSession(null));
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !sidebar.hidden) setSidebar(false);
+  if (event.key === "Escape" && sidebarOpen) setSidebar(false);
 });
 mobileLayout.addEventListener("change", () => {
   setSidebar(!mobileLayout.matches);
