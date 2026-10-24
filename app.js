@@ -231,7 +231,11 @@ async function exportActiveChat() {
     const title = String(session.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
     const filename = `jafai-chat-${date}${title ? `-${title}` : ""}.txt`;
     const blob = new Blob([`${transcript}\n`], { type: "text/plain;charset=utf-8" });
-    if (typeof navigator.share === "function" && typeof navigator.canShare === "function" && typeof File === "function") {
+    const userAgent = navigator.userAgent || "";
+    // iPadOS can identify as a Mac when requesting desktop websites.
+    const isIOS = !/Android/i.test(userAgent) && (/iPhone|iPad|iPod/i.test(userAgent)
+      || (/Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1));
+    if (isIOS && typeof navigator.share === "function" && typeof navigator.canShare === "function" && typeof File === "function") {
       const file = new File([blob], filename, { type: "text/plain" });
       try {
         if (navigator.canShare({ files: [file] })) {

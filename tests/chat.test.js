@@ -669,13 +669,14 @@ test("backend forwards validated history as conversation roles while rejecting s
   assert.equal(calls, 1);
 });
 
-test("mobile export shares the exact text file locally and prevents overlapping share sheets", async () => {
+test("iOS export shares the exact text file locally and prevents overlapping share sheets", async () => {
   let shareData;
   let finishShare;
   let shareCalls = 0;
   let fetchCalls = 0;
   const ui = frontend(async () => { fetchCalls++; return sseResponse("Mobile reply 🌋"); }, {
     navigator: {
+      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)",
       canShare: data => { assert.equal(data.files[0] instanceof File, true); return true; },
       share: data => {
         shareData = data;
@@ -702,10 +703,11 @@ test("mobile export shares the exact text file locally and prevents overlapping 
   assert.equal(fetchCalls, 1); // Only the chat message, never an export upload.
 });
 
-test("cancelled sharing stays cancelled; unsupported or failed sharing falls back to download", async () => {
+test("cancelled iOS sharing stays cancelled; unsupported or failed sharing falls back to download", async () => {
   for (const mode of ["cancel", "blocked", "unsupported", "no-file-check", "capability-error"]) {
     let shareCalls = 0;
     const navigator = {
+      userAgent: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)",
       canShare: () => {
         if (mode === "capability-error") throw new Error("Unavailable capability check");
         return mode !== "unsupported";
@@ -726,6 +728,48 @@ test("cancelled sharing stays cancelled; unsupported or failed sharing falls bac
     assert.equal(ui.nodes["#export-chat"].disabled, false);
     ui.downloadCleanup.forEach(cleanup => cleanup());
   }
+});
+
+test("desktop and Android exports download directly even when file sharing is supported", async () => {
+  for (const userAgent of [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)",
+    "Mozilla/5.0 (X11; Linux x86_64)",
+    "Mozilla/5.0 (Linux; Android 15; SM-S928B) SamsungBrowser/27.0",
+    "Mozilla/5.0 (Linux; Android 15; Pixel 9) Chrome/130.0",
+    "",
+  ]) {
+    const ui = frontend(async () => sseResponse("Answer"), {
+      navigator: {
+        userAgent,
+        canShare: () => { assert.fail("Download exports must not check file sharing"); },
+        share: () => { assert.fail("Download exports must not open a share sheet"); },
+      },
+    });
+    ui.input.value = "Question";
+    await ui.submit();
+    await ui.nodes["#export-chat"].events.click();
+    assert.equal(ui.downloads.length, 1, userAgent);
+    assert.equal(await ui.blobs[0].text(), "USER: Question\n\nJAFAI: Answer\n");
+    ui.downloadCleanup.forEach(cleanup => cleanup());
+  }
+});
+
+test("iPadOS desktop mode still exports through the iOS share sheet", async () => {
+  let shares = 0;
+  const ui = frontend(async () => sseResponse("Answer"), {
+    navigator: {
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)",
+      maxTouchPoints: 5,
+      canShare: () => true,
+      share: async () => { shares++; },
+    },
+  });
+  ui.input.value = "Question";
+  await ui.submit();
+  await ui.nodes["#export-chat"].events.click();
+  assert.equal(shares, 1);
+  assert.equal(ui.downloads.length, 0);
 });
 
 test("Import Chat invokes the native file input synchronously", () => {
