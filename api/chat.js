@@ -14,14 +14,31 @@ Conserve Mana: the user may be tired. Be concise and give the structural truth d
 Keep the Fear and Invoice diagnostic lens, the Street Dialect, and the refusal to use corporate smoothing or jargon. Apply the framework with calm clarity rather than aggression. Use Knowledge V1 for substance; these tone and formatting rules govern how you express it.`;
 
 async function buildSystemPrompt() {
+  const knowledgeDirectory = path.join(process.cwd(), "knowledge");
   try {
-    const knowledge = (await fs.readFile(path.join(process.cwd(), "knowledge-v1.txt"), "utf8")).trim();
+    const entries = await fs.readdir(knowledgeDirectory, { withFileTypes: true });
+    const filenames = entries
+      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".txt"))
+      .map((entry) => entry.name)
+      .sort();
+    const contents = await Promise.all(filenames.map(async (filename) => {
+      try {
+        return (await fs.readFile(path.join(knowledgeDirectory, filename), "utf8")).trim();
+      } catch (error) {
+        console.warn(`[JAFAI] Could not read knowledge/${filename} (${error.code || "read error"}). Skipping file.`);
+        return "";
+      }
+    }));
+    const loaded = contents.filter(Boolean);
+    console.log(`[JAFAI] Loaded ${loaded.length} knowledge files.`);
+    const knowledge = loaded.join("\n\n");
     if (knowledge) {
       return `${SYSTEM_PROMPT}\n\nHere is your Knowledge Base (Knowledge V1). Use it to inform your answers, but do not quote it word-for-word unless necessary:\n${knowledge}`;
     }
-    console.warn("[JAFAI] knowledge-v1.txt is empty. Using the base system prompt.");
+    console.warn("[JAFAI] No non-empty knowledge files found. Using the base system prompt.");
   } catch (error) {
-    console.warn(`[JAFAI] Could not read knowledge-v1.txt (${error.code || "read error"}). Using the base system prompt.`);
+    console.log("[JAFAI] Loaded 0 knowledge files.");
+    console.warn(`[JAFAI] Could not read knowledge/ (${error.code || "read error"}). Using the base system prompt.`);
   }
   return SYSTEM_PROMPT;
 }

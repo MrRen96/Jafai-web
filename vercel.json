@@ -2,7 +2,7 @@
   "functions": {
     "api/chat.js": {
       "maxDuration": 30,
-      "includeFiles": "knowledge-v1.txt"
+      "includeFiles": "knowledge/**"
     }
   }
 }

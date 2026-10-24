@@ -23,8 +23,10 @@ function response() {
 }
 
 test("backend validates requests and handles provider responses without exposing secrets", async (t) => {
+  t.mock.method(fs.promises, "readdir", async () => []);
   t.mock.method(fs.promises, "readFile", async () => "");
   t.mock.method(console, "warn", () => {});
+  t.mock.method(console, "log", () => {});
   const originalKey = process.env.DEEPSEEK_API_KEY;
   const originalFetch = global.fetch;
   t.after(() => {
@@ -88,7 +90,7 @@ test("backend validates requests and handles provider responses without exposing
   }
 });
 
-test("Knowledge V1 is injected, with a warning and base prompt fallback on empty or unreadable files", async (t) => {
+test("Knowledge folder loads sorted text files and falls back safely for empty or unavailable knowledge", async (t) => {
   const originalKey = process.env.DEEPSEEK_API_KEY;
   t.after(() => {
     if (originalKey === undefined) delete process.env.DEEPSEEK_API_KEY;
@@ -96,13 +98,30 @@ test("Knowledge V1 is injected, with a warning and base prompt fallback on empty
   });
   process.env.DEEPSEEK_API_KEY = "test-secret";
   let scenario;
+  let reads;
   const warning = t.mock.method(console, "warn", () => {});
-  t.mock.method(fs.promises, "readFile", async (filename, encoding) => {
-    assert.equal(filename, require("node:path").join(process.cwd(), "knowledge-v1.txt"));
-    assert.equal(encoding, "utf8");
+  const logging = t.mock.method(console, "log", () => {});
+  const directory = require("node:path").join(process.cwd(), "knowledge");
+  const entry = (name, isFile = true) => ({ name, isFile: () => isFile });
+  t.mock.method(fs.promises, "readdir", async (filename, options) => {
+    assert.equal(filename, directory);
+    assert.deepEqual(options, { withFileTypes: true });
     if (scenario === "missing") throw Object.assign(new Error(), { code: "ENOENT" });
-    if (scenario === "unreadable") throw Object.assign(new Error(), { code: "EACCES" });
-    return scenario === "content" ? "  Manual text.\nSecond paragraph.  " : " \n\t";
+    if (scenario === "empty") return [];
+    if (scenario === "content" || scenario === "partial") {
+      return [entry("z.TXT"), entry("image.png"), entry("nested.txt", false), entry("a.txt")];
+    }
+    return [entry("a.txt")];
+  });
+  t.mock.method(fs.promises, "readFile", async (filename, encoding) => {
+    reads.push(require("node:path").basename(filename));
+    assert.equal(require("node:path").dirname(filename), directory);
+    assert.equal(encoding, "utf8");
+    if (scenario === "unreadable" || (scenario === "partial" && filename.endsWith("z.TXT"))) {
+      throw Object.assign(new Error(), { code: "EACCES" });
+    }
+    if (scenario === "blank") return " \n\t";
+    return filename.endsWith("a.txt") ? "  Manual text.\nSecond paragraph.  " : "Extra text.";
   });
   let sentPrompt;
   t.mock.method(global, "fetch", async (_url, options) => {
@@ -110,15 +129,20 @@ test("Knowledge V1 is injected, with a warning and base prompt fallback on empty
     return sseResponse("Answer");
   });
   const base = "You are JAFAI (Just Another Fucking AI). Speak in the Street Dialect with the calm, quiet confidence of a seasoned intelligence officer or a street-smart mentor. Be direct, matter-of-fact, and grounded. Avoid aggressive introductions, theatrical toughness, and lists of what you are not.\n\nWrite in natural, conversational paragraphs. Avoid excessive bold text and numbered lists for simple answers. Use a list only when necessary, with a maximum of 3 short bullet points.\n\nConserve Mana: the user may be tired. Be concise and give the structural truth directly. Keep answers short unless the user asks for depth or the subject needs it.\n\nKeep the Fear and Invoice diagnostic lens, the Street Dialect, and the refusal to use corporate smoothing or jargon. Apply the framework with calm clarity rather than aggression. Use Knowledge V1 for substance; these tone and formatting rules govern how you express it.";
-  for (scenario of ["content", "empty", "missing", "unreadable"]) {
+  for (scenario of ["content", "empty", "blank", "missing", "unreadable", "partial"]) {
+    reads = [];
     const before = warning.mock.callCount();
     const res = response();
     await handler({ method: "POST", body: { message: "Hello" } }, res);
     assert.equal(res.code, 200);
-    assert.equal(sentPrompt, scenario === "content"
-      ? `${base}\n\nHere is your Knowledge Base (Knowledge V1). Use it to inform your answers, but do not quote it word-for-word unless necessary:\nManual text.\nSecond paragraph.`
+    const count = scenario === "content" ? 2 : scenario === "partial" ? 1 : 0;
+    assert.equal(sentPrompt, count
+      ? `${base}\n\nHere is your Knowledge Base (Knowledge V1). Use it to inform your answers, but do not quote it word-for-word unless necessary:\nManual text.\nSecond paragraph.${count === 2 ? "\n\nExtra text." : ""}`
       : base);
-    assert.equal(warning.mock.callCount() - before, scenario === "content" ? 0 : 1);
+    assert.equal(warning.mock.callCount() - before, scenario === "content" ? 0 : scenario === "unreadable" ? 2 : 1);
+    assert.equal(logging.mock.calls.at(-1).arguments[0], `[JAFAI] Loaded ${count} knowledge files.`);
+    if (scenario === "content" || scenario === "partial") assert.deepEqual(reads, ["a.txt", "z.TXT"]);
+    if (scenario === "missing" || scenario === "empty") assert.deepEqual(reads, []);
   }
 });
 
@@ -249,7 +273,9 @@ test("backend forwards bytes before upstream completes and aborts on client disc
     else process.env.DEEPSEEK_API_KEY = originalKey;
   });
   process.env.DEEPSEEK_API_KEY = "test-secret";
+  t.mock.method(fs.promises, "readdir", async () => [{ name: "manual.txt", isFile: () => true }]);
   t.mock.method(fs.promises, "readFile", async () => "Manual");
+  t.mock.method(console, "log", () => {});
   let upstream;
   let signal;
   let cancelled = false;

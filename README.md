@@ -33,11 +33,15 @@ your account before relying on it in production.
 
 Run `node --test` to exercise the backend and frontend with mocked requests.
 
-Paste Knowledge V1 into the root `knowledge-v1.txt` file as UTF-8 text, then
-deploy the updated file. The function reads it on each request and appends it
-to the system prompt. Missing, unreadable, or blank knowledge files produce a
-server console warning and fall back to the base prompt. The file starts empty.
-`vercel.json` explicitly includes it in the function bundle. The full text is
-sent to DeepSeek with each message, so it must fit the model's context limit.
+Store Knowledge V1 as UTF-8 `.txt` files directly inside `knowledge/`, then deploy
+the updated files. The existing manifesto is in `knowledge/knowledge-v1.txt`.
+On each request, the function loads text files in filename order and joins their
+contents with blank lines before appending them to the system prompt. Other
+file types and subdirectories are ignored. Blank files are skipped; unreadable
+files generate a warning without preventing other files from loading. An empty
+or missing folder falls back to the base prompt. Server logs report the number
+of non-empty files loaded. `vercel.json` includes `knowledge/**` in the function
+bundle. The combined text is sent with each message and must fit the model's
+context limit.
 
 `jafai-logo.png` is a copy of the supplied `Image conpets/Jafai Logo.png`.
