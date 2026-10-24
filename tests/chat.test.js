@@ -858,6 +858,7 @@ test("mobile focus reveals the latest message and keyboard viewport changes rese
   ui.paint();
   assert.equal(ui.cssProperties.get("--mobile-viewport-height"), "450px");
   assert.equal(ui.cssProperties.get("--keyboard-inset"), "330px");
+  assert.equal(ui.cssProperties.get("--mobile-viewport-offset"), "20px");
   assert.ok(latest.scrollIntoViewCalls >= 2);
   assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
   ui.visualViewport.height = 800;
@@ -865,6 +866,7 @@ test("mobile focus reveals the latest message and keyboard viewport changes rese
   ui.viewportEvents.resize();
   ui.paint();
   assert.equal(ui.cssProperties.get("--keyboard-inset"), "0px");
+  assert.equal(ui.cssProperties.get("--mobile-viewport-offset"), "0px");
   ui.visualViewport.scale = 2;
   ui.visualViewport.height = 300;
   ui.viewportEvents.resize();

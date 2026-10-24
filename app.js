@@ -99,6 +99,7 @@ function updateMobileViewport() {
   if (!mobileLayout.matches) {
     style.removeProperty("--mobile-viewport-height");
     style.removeProperty("--keyboard-inset");
+    style.removeProperty("--mobile-viewport-offset");
     return;
   }
   const viewport = window.visualViewport;
@@ -108,6 +109,7 @@ function updateMobileViewport() {
   const inset = Math.max(0, window.innerHeight - height - (viewport?.offsetTop || 0));
   style.setProperty("--mobile-viewport-height", `${height}px`);
   style.setProperty("--keyboard-inset", `${inset}px`);
+  style.setProperty("--mobile-viewport-offset", `${viewport?.offsetTop || 0}px`);
 }
 
 function handleMobileViewportChange() {
@@ -618,7 +620,7 @@ input.addEventListener("keydown", (event) => {
   }
 });
 
-// Reserve the actual composer height as the textarea grows, including on mobile.
+// Track composer growth and keep the latest message visible as the textarea resizes.
 new ResizeObserver(() => {
   document.documentElement.style.setProperty("--dock-height", `${dock.offsetHeight}px`);
   scrollChatToBottom();

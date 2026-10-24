@@ -2,6 +2,14 @@
 
 A vanilla HTML, CSS, and JavaScript chat frontend with a Vercel Serverless backend.
 
+The chat and composer share a left-aligned, full-width layout capped at 1200px
+on wide displays. A compact header replaces the large centered logo; branding
+lives in the sidebar and reappears at the top left when the sidebar is closed.
+The viewport uses a flex column: the conversation scrolls in the remaining space
+above the bottom composer, without fixed header-height calculations or composer
+overlap. Mobile uses the full viewport with small edge gutters and an overlay
+sidebar. UI surfaces use square corners, charcoal, and Sunset Orange.
+
 The root manifest and service worker enable PWA installation. The header's
 `[ Install App ]` action is hidden until the browser fires `beforeinstallprompt`.
 It opens that native prompt on click, hides after acceptance, and stays hidden
@@ -32,12 +40,13 @@ returns DeepSeek's raw server-sent events (SSE), or a JSON `error` before the
 stream begins. The browser decodes content deltas incrementally into fading
 text spans, scrolling as the answer grows. Reduced-motion preferences disable
 the animation. Interrupted streams retain partial text with an inline error.
-On mobile, keyboard resizes update the visible chat height and composer offset.
+On mobile, keyboard resizes update the visible app height and viewport offset.
 Input focus reveals the latest message, and each streamed chunk forces the chat
 to the bottom immediately and after the next mobile layout frame.
 On mobile, Send blurs the input to dismiss the keyboard, then rechecks viewport
-size and scrolls again after 150ms. The mobile chat's bottom padding tracks the
-measured composer height. Desktop Send retains its existing input focus.
+size and scrolls again after 150ms. Flex layout reserves the composer's actual
+height below the scroll region, which keeps 24px of bottom padding. Desktop
+Send retains its existing input focus.
 The viewport meta tag requests `interactive-widget=resizes-content`; VisualViewport supplies
 a fallback for overlay keyboards. These layout adjustments are limited to the
 existing mobile breakpoint; desktop layout and focus behavior stay unchanged.
