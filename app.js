@@ -11,6 +11,8 @@ const sidebarToggle = document.querySelector("#sidebar-toggle");
 const sidebarBackdrop = document.querySelector("#sidebar-backdrop");
 const storageStatus = document.querySelector("#storage-status");
 const exportButton = document.querySelector("#export-chat");
+const importButton = document.querySelector("#import-chat");
+const importFile = document.querySelector("#import-file");
 const mobileLayout = window.matchMedia("(max-width: 760px)");
 const STORAGE_KEY = "jafai.chatSessions.v1";
 const ACTIVE_KEY = "jafai.activeSession.v1";
@@ -117,6 +119,75 @@ function exportActiveChat() {
     }
   } catch {
     storageWarning("This saved chat could not be exported. Check that browser storage is available.");
+  }
+}
+
+function parseChatText(text) {
+  const parsed = [];
+  let current = null;
+  for (const line of text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n")) {
+    const label = /^(USER|JAFAI):[ \t]?(.*)$/.exec(line);
+    if (label) {
+      current = { role: label[1] === "USER" ? "user" : "assistant", lines: [label[2]] };
+      parsed.push(current);
+    } else if (current) {
+      current.lines.push(line);
+    } else if (line.trim()) {
+      throw new Error("Choose a JAFAI export with USER: and JAFAI: message labels.");
+    }
+  }
+  if (!parsed.length || parsed[0].role !== "user" || parsed.length > 1000) {
+    throw new Error("Import needs a USER: message first and a maximum of 1,000 messages.");
+  }
+  const timestamp = new Date().toISOString();
+  const restored = parsed.map((message) => ({
+    role: message.role, content: message.lines.join("\n").trim(), timestamp, status: "complete",
+  }));
+  if (restored.some((message) => !message.content)) throw new Error("The chat contains an empty message.");
+  if (restored.reduce((length, message) => length + message.content.length, 0) > 500000) {
+    throw new Error("The chat is too large (maximum 500,000 characters).");
+  }
+  return restored;
+}
+
+async function importChat() {
+  const file = importFile.files?.[0];
+  if (!file || importButton.disabled) return;
+  importButton.disabled = true;
+  try {
+    if (!/\.txt$/i.test(file.name) || file.size > 1024 * 1024) {
+      throw new Error("Choose a .txt chat export smaller than 1 MB.");
+    }
+    const text = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("The file could not be read. Please try again."));
+      reader.onabort = () => reject(new Error("File import was cancelled."));
+      reader.readAsText(file, "UTF-8");
+    });
+    const restored = parseChatText(text);
+    if (!storageReadable) throw new Error("Browser storage is unavailable. The chat could not be imported.");
+    stopResponse();
+    const previousActive = activeSessionId;
+    const session = {
+      id: crypto.randomUUID(), title: Array.from(restored[0].content).slice(0, 30).join(""),
+      timestamp: new Date().toISOString(), messages: restored,
+    };
+    sessions.unshift(session);
+    activeSessionId = session.id;
+    if (!saveSessions()) {
+      sessions.shift();
+      activeSessionId = previousActive;
+      renderConversation();
+      updateComposer();
+      throw new Error("Browser storage could not save the imported chat.");
+    }
+    selectSession(session.id);
+  } catch (error) {
+    storageWarning(`Import failed: ${error.message}`);
+  } finally {
+    importButton.disabled = false;
+    importFile.value = "";
   }
 }
 
@@ -339,7 +410,12 @@ form.addEventListener("submit", async (event) => {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({
+        message: text,
+        history: session.messages.slice(0, -2)
+          .filter((message) => message.status === "complete" && message.content.trim())
+          .map((message) => ({ role: message.role, content: message.content })),
+      }),
       signal: AbortSignal.any([request.controller.signal, AbortSignal.timeout(35000)]),
     });
     if (currentRequest !== request) {
@@ -410,6 +486,8 @@ new ResizeObserver(() => {
 
 sidebarToggle.addEventListener("click", () => setSidebar(true));
 exportButton.addEventListener("click", exportActiveChat);
+importButton.addEventListener("click", () => { importFile.value = ""; importFile.click(); });
+importFile.addEventListener("change", importChat);
 document.querySelector("#sidebar-close").addEventListener("click", () => setSidebar(false));
 sidebarBackdrop.addEventListener("click", () => setSidebar(false));
 document.querySelector("#new-chat").addEventListener("click", () => selectSession(null));

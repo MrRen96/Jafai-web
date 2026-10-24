@@ -12,7 +12,7 @@ For local development, use `npx vercel dev` with `DEEPSEEK_API_KEY` in
 static-only server will display the UI but cannot run `/api/chat`.
 
 Type a message and press Enter or click the arrow to send. Shift+Enter adds a
-new line. The frontend posts `{ "message": "..." }` to `/api/chat`, which
+new line. The frontend posts `{ "message": "...", "history": [...] }` to `/api/chat`, which
 returns DeepSeek's raw server-sent events (SSE), or a JSON `error` before the
 stream begins. The browser decodes content deltas incrementally into fading
 text spans, scrolling as the answer grows. Reduced-motion preferences disable
@@ -35,8 +35,10 @@ The history vault is client-side only; no database, account, or history-sync
 API is involved. Browser storage is specific to the site's origin and browser
 profile; clearing site data removes it. Storage failures show an inline notice
 and leave the current chat usable in memory. Malformed stored history is left
-untouched. History remains on the device; each send still posts only the current
-message to the existing cloud endpoint, rather than the saved transcript.
+untouched. On send, the active conversation's prior completed messages and the
+new user message are sent to the cloud endpoint for conversation context. Other
+saved sessions are not included. Failed and interrupted assistant responses are
+excluded from follow-up context.
 
 `[ Export Chat ]` downloads the active saved conversation as a UTF-8 `.txt`
 file with `USER:` and `JAFAI:` labels. The filename includes the session date
@@ -44,9 +46,21 @@ and a sanitized title. Export uses only localStorage and a local Blob download;
 it does not call the backend. Pending streamed text is saved before export.
 The action is disabled for a blank New Chat.
 
-The backend sends the current message and the JAFAI system prompt to
+`[ Import Chat ]` opens a local `.txt` picker and uses FileReader to restore
+`USER:` / `JAFAI:` message blocks into a new saved session. Multiline messages,
+UTF-8, Windows line endings, and a UTF-8 BOM are supported. Import itself makes
+no network request; imported content is sent as conversation context only when
+the user sends a new message. The first message must be `USER:`. Labels must
+start at the beginning of a line; label-like lines inside message text are
+interpreted as new message boundaries by this plain-text format. Import accepts
+files up to 1 MB and transcripts up to 1,000 messages / 500,000 content characters.
+Invalid files leave the existing sessions intact and show an inline error.
+
+The backend sends the active conversation's history, current message, and JAFAI system prompt to
 `https://api.deepseek.com/v1/chat/completions` using `deepseek-chat`, exactly as
-requested. Earlier messages are displayed locally but are not sent as context.
+requested. History accepts only `user` and `assistant` roles, with a maximum of
+1,000 messages and 500,000 characters. Oversized history is rejected rather than
+silently truncated; the provider's context limit still applies alongside the knowledge base.
 The provider request times out after 25 seconds; the function allows 30 seconds.
 No SDK or runtime dependencies are required (use a current Vercel Node.js runtime).
 

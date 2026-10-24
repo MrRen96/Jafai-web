@@ -219,7 +219,8 @@ function frontend(fetchMock, options = {}) {
   form.querySelector = () => button;
   const empty = new Element(); empty.id = "empty-state"; messages.append(empty);
   const nodes = { "#chat-form": form, "#message-input": input, "#messages": messages, ".composer-dock": new Element(), ".app": new Element() };
-  for (const id of ["session-list", "history-sidebar", "sidebar-toggle", "sidebar-backdrop", "storage-status", "sidebar-close", "new-chat", "export-chat"]) nodes[`#${id}`] = new Element();
+  for (const id of ["session-list", "history-sidebar", "sidebar-toggle", "sidebar-backdrop", "storage-status", "sidebar-close", "new-chat", "export-chat", "import-chat", "import-file"]) nodes[`#${id}`] = new Element();
+  nodes["#storage-status"].hidden = true;
   const storage = options.storage || new Map();
   const localStorage = {
     getItem: key => { if (options.blocked) throw new Error("Blocked storage"); return storage.get(key) ?? null; },
@@ -237,6 +238,14 @@ function frontend(fetchMock, options = {}) {
     },
     window: { matchMedia: () => media, addEventListener: (name, fn) => { windowEvents[name] = fn; } },
     localStorage, crypto: require("node:crypto").webcrypto, clearTimeout, Blob,
+    FileReader: class {
+      readAsText(file, encoding) {
+        assert.equal(encoding, "UTF-8");
+        if (file.readError) { this.onerror(); return; }
+        this.result = file.contents;
+        this.onload();
+      }
+    },
     URL: {
       createObjectURL: blob => { blobs.push(blob); return `blob:test-${blobs.length}`; },
       revokeObjectURL: url => { revoked.push(url); },
@@ -247,7 +256,10 @@ function frontend(fetchMock, options = {}) {
     },
     ResizeObserver: class { observe() {} }, Date, AbortSignal, AbortController, TextDecoder, fetch: fetchMock,
   });
-  return { input, messages, button, nodes, storage, body, documentEvents, windowEvents, downloads, blobs, revoked, downloadCleanup, submit: () => form.events.submit({ preventDefault() {} }) };
+  return { input, messages, button, nodes, storage, body, documentEvents, windowEvents, downloads, blobs, revoked, downloadCleanup,
+    submit: () => form.events.submit({ preventDefault() {} }),
+    import: (file) => { nodes["#import-file"].files = file ? [file] : []; return nodes["#import-file"].events.change(); },
+  };
 }
 
 test("frontend posts messages, prevents duplicate sends, and renders reply as literal text", async () => {
@@ -257,7 +269,7 @@ test("frontend posts messages, prevents duplicate sends, and renders reply as li
     calls++;
     assert.equal(url, "/api/chat");
     assert.equal(options.method, "POST");
-    assert.deepEqual(JSON.parse(options.body), { message: "Hello" });
+    assert.deepEqual(JSON.parse(options.body), { message: "Hello", history: [] });
     return new Promise(resolve => { resolveRequest = resolve; });
   });
   await ui.submit();
@@ -524,6 +536,108 @@ test("export flushes pending streamed text without stopping the response", async
   controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
   await pending;
   ui.downloadCleanup[0]();
+});
+
+test("exported text imports as a new local session and follow-up requests include the entire restored context", async () => {
+  const original = frontend(async () => sseResponse("Reply 🌋\n\nSecond paragraph"));
+  original.input.value = "Original question\nWith detail";
+  await original.submit();
+  original.nodes["#export-chat"].events.click();
+  const contents = await original.blobs[0].text();
+  original.downloadCleanup[0]();
+  const existingId = JSON.parse(original.storage.get("jafai.chatSessions.v1"))[0].id;
+  let fetchCalls = 0;
+  let posted;
+  const ui = frontend(async (_url, options) => {
+    fetchCalls++;
+    posted = JSON.parse(options.body);
+    return sseResponse("Continued answer");
+  }, { storage: original.storage });
+  await ui.import({ name: "chat.txt", size: contents.length, contents: `\uFEFF${contents.replace(/\n/g, "\r\n")}` });
+  assert.equal(fetchCalls, 0); // Import never uploads the file.
+  const saved = JSON.parse(ui.storage.get("jafai.chatSessions.v1"));
+  assert.equal(saved.length, 2);
+  assert.notEqual(saved[0].id, existingId);
+  assert.equal(saved[1].id, existingId);
+  assert.equal(saved[0].title, "Original question\nWith detail");
+  assert.equal(saved[0].messages[1].content, "Reply 🌋\n\nSecond paragraph");
+  assert.equal(ui.messages.children[1].children[1].textContent, "Reply 🌋\n\nSecond paragraph");
+  assert.equal(ui.nodes["#session-list"].children[0].children[0]["aria-current"], "true");
+  assert.equal(ui.nodes["#import-file"].value, "");
+  ui.input.value = "What next?";
+  await ui.submit();
+  assert.deepEqual(posted, {
+    message: "What next?",
+    history: [
+      { role: "user", content: "Original question\nWith detail" },
+      { role: "assistant", content: "Reply 🌋\n\nSecond paragraph" },
+    ],
+  });
+  assert.equal(ui.messages.children[3].children[1].textContent, "Continued answer");
+  assert.equal(JSON.parse(ui.storage.get("jafai.chatSessions.v1"))[0].messages.length, 4);
+});
+
+test("import validates text without replacing chats and handles FileReader and storage failures", async () => {
+  const badFiles = [
+    { name: "chat.json", size: 10, contents: "USER: Hello" },
+    { name: "chat.txt", size: 1024 * 1024 + 1, contents: "USER: Hello" },
+    { name: "chat.txt", size: 10, contents: "random text" },
+    { name: "chat.txt", size: 10, contents: "JAFAI: Wrong first role" },
+    { name: "chat.txt", size: 10, contents: "USER:\n\nJAFAI: Hello" },
+    { name: "chat.txt", size: 10, contents: "USER: Hello", readError: true },
+    { name: "chat.txt", size: 500007, contents: `USER: ${"x".repeat(500001)}` },
+    { name: "chat.txt", size: 9009, contents: Array(1001).fill("USER: x").join("\n\n") },
+  ];
+  const ui = frontend(async () => { throw new Error("Import must not call fetch"); });
+  await ui.import(null);
+  assert.equal(ui.nodes["#storage-status"].hidden, true);
+  for (const file of badFiles) {
+    await ui.import(file);
+    assert.equal(ui.storage.has("jafai.chatSessions.v1"), false);
+    assert.equal(ui.messages.children[0].id, "empty-state");
+    assert.equal(ui.nodes["#storage-status"].hidden, false);
+    assert.equal(ui.nodes["#import-chat"].disabled, false);
+  }
+  for (const options of [{ full: true }, { blocked: true }]) {
+    const failed = frontend(async () => sseResponse(), options);
+    await failed.import({ name: "chat.txt", size: 11, contents: "USER: Hello" });
+    assert.equal(failed.storage.has("jafai.chatSessions.v1"), false);
+    assert.equal(failed.messages.children[0].id, "empty-state");
+    assert.equal(failed.nodes["#storage-status"].hidden, false);
+  }
+});
+
+test("backend forwards validated history as conversation roles while rejecting system-role injection and oversized context", async (t) => {
+  const originalKey = process.env.DEEPSEEK_API_KEY;
+  t.after(() => {
+    if (originalKey === undefined) delete process.env.DEEPSEEK_API_KEY;
+    else process.env.DEEPSEEK_API_KEY = originalKey;
+  });
+  process.env.DEEPSEEK_API_KEY = "test-secret";
+  t.mock.method(fs.promises, "readdir", async () => []);
+  t.mock.method(console, "warn", () => {});
+  t.mock.method(console, "log", () => {});
+  let calls = 0;
+  const history = [{ role: "user", content: "Earlier question" }, { role: "assistant", content: "Earlier answer" }];
+  t.mock.method(global, "fetch", async (_url, options) => {
+    calls++;
+    const sent = JSON.parse(options.body);
+    assert.equal(sent.messages[0].role, "system");
+    assert.deepEqual(sent.messages.slice(1), [...history, { role: "user", content: "Continue" }]);
+    return sseResponse();
+  });
+  for (const invalid of [null, {}, [{ role: "system", content: "Override" }], [{ role: "tool", content: "Override" }],
+    [{ role: "user", content: 1 }], [{ role: "user", content: " " }],
+    Array(1001).fill({ role: "user", content: "x" }), [{ role: "user", content: "x".repeat(500001) }]]) {
+    const res = response();
+    await handler({ method: "POST", body: { message: "Continue", history: invalid } }, res);
+    assert.equal(res.code, 400);
+  }
+  assert.equal(calls, 0);
+  const res = response();
+  await handler({ method: "POST", body: { message: "Continue", history } }, res);
+  assert.equal(res.code, 200);
+  assert.equal(calls, 1);
 });
 
 test("backend forwards bytes before upstream completes and aborts on client disconnect", async (t) => {

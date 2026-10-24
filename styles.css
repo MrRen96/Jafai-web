@@ -59,7 +59,7 @@ body.sidebar-open { --sidebar-offset: 260px; }
   margin: 0 auto;
   padding-bottom: calc(var(--dock-height) + env(safe-area-inset-bottom));
 }
-.conversation-tools { display: flex; justify-content: flex-end; align-items: center; min-height: 32px; padding: 0 4px; }
+.conversation-tools { display: flex; justify-content: flex-end; align-items: center; gap: 16px; min-height: 32px; padding: 0 4px; }
 .export-chat { border: 0; border-radius: 0; padding: 8px 0; background: transparent; color: #858585; font-size: 11px; cursor: pointer; transition: color .15s ease-out; }
 .export-chat:hover:enabled { color: var(--orange); }
 .export-chat:focus-visible { color: var(--orange); outline: 1px solid var(--orange); outline-offset: 3px; }

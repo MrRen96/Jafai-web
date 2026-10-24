@@ -69,6 +69,16 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: "Message must contain between 1 and 10,000 characters." });
   }
 
+  const history = body?.history === undefined ? [] : body.history;
+  if (!Array.isArray(history) || history.length > 1000 || history.some((item) =>
+    !item || !["user", "assistant"].includes(item.role)
+    || typeof item.content !== "string" || !item.content.trim())) {
+    return res.status(400).json({ error: "History must contain valid user and assistant messages (maximum 1,000)." });
+  }
+  if (history.reduce((length, item) => length + item.content.length, 0) > 500000) {
+    return res.status(400).json({ error: "Conversation history is too large (maximum 500,000 characters)." });
+  }
+
   const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
   if (!apiKey) {
     return res.status(503).json({ error: "Chat is not configured. Set DEEPSEEK_API_KEY on the server." });
@@ -89,6 +99,7 @@ module.exports = async function handler(req, res) {
         model: "deepseek-chat",
         messages: [
           { role: "system", content: systemPrompt },
+          ...history.map((item) => ({ role: item.role, content: item.content })),
           { role: "user", content: message.trim() },
         ],
         stream: true,
