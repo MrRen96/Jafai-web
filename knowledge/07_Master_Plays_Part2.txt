@@ -1,0 +1,36 @@
+9. The "Take One for the Team" Trap
+The Corporate Line / Verbal Cover: "We all need to be team players and lean in during this critical transition period."
+What It Actually Means: Management under-budgeted or cut headcount, and they want you to do two people's jobs for zero extra pay under the guise of moral duty.
+The Trap: Saying "That's not in my job description" or "I'm not doing extra work," which lets them label you "uncooperative" or "not culturally aligned."
+The Counter-Play: Resource Triage — Accept the sentiment, but force them to choose which deliverable gets abandoned.
+The Script: "I am fully committed to supporting the company's priorities. Given current capacity, absorbing [Task B] means [Task A] will be delayed or deprioritized. Which of these two deliverables would you like me to put on hold while I focus on the transition?"
+
+The Scope Creep Ambush
+The Corporate Line / Verbal Cover: "While you're in there, could you just quickly run these numbers / draft this proposal / add this feature?"
+What It Actually Means: Sneaking extra work into your queue without formal approval, budget, or timeline extensions, so if the main project slips, you take the blame.
+The Trap: Saying "Sure, no problem," and then drowning in unlogged work.
+The Counter-Play: Formal Change-Control — Turn casual verbal asks into formal institutional friction.
+The Script: "Happy to evaluate incorporating that. Since this expands the original scope signed off on [Date], I will document the required budget and timeline extension. Once leadership approves the revised project schedule, I'll initiate the work."
+
+The Sudden Selective Amnesia
+The Corporate Line / Verbal Cover: "I never agreed to those terms / I don't recall authorizing that direction."
+What It Actually Means: The decision blew up in their face, leadership is angry, and they are preparing to throw you under the bus.
+The Trap: Getting angry, yelling "You told me to do this in the hallway last Thursday!" (which sounds like an unprovable excuse).
+The Counter-Play: The Timestamped Vault — Never argue memory; quote the written chain.
+The Script: "Understood. For complete clarity, I'm re-attaching the summary email sent on [Date] at [Time], which confirmed this exact direction prior to execution. Moving forward from today's position, what is our revised operating strategy?"
+
+The Verbal Gaslight ("Just Call Me")
+The Corporate Line / Verbal Cover: (Replying to an important, paper-trail email with) "Let's jump on a quick call instead of going back and forth on email."
+What It Actually Means: You put something risky or legally sensitive in writing, and they want to kill the paper trail so they can backtrack later without evidence.
+The Trap: Taking the call, agreeing to everything verbally, and hanging up without writing a single word down.
+The Counter-Play: The Immediate Post-Call Memo — Take the call, listen to them talk, and send a summary email five minutes later.
+The Script: "Hi [Name], thanks for jumping on a quick call just now. To document our discussion: you confirmed that we should proceed with [Action X] and bypass [Standard Procedure Y]. If this differs in any way from what you outlined on the call, please let me know by 4 PM so I can adjust before proceeding."
+
+The "Forced Concurrence" (The Corporate Checkmate)
+The Corporate Line / Verbal Cover: (Said behind closed doors) "Look, off the record, we need you to just sign off on this report / overlook this compliance lapse / cut this corner. Everyone does it, don't make a big deal out of it."
+What It Actually Means: They are asking you to commit career suicide or take legal liability to cover their incompetence. The phrase "off the record" means they want your signature on the crime while their hands stay completely clean.
+The Trap: Refusing angrily in private. They will immediately realize you're a threat, run to leadership first, frame you as "toxic" or "difficult to work with," and quietly push you out before you can say anything.
+The Counter-Play: The Audit Mirror — Do not argue. Do not accuse. Act as though you assume they are acting in absolute good faith, and loop in the very oversight body they fear most (Legal, Risk, Audit, or Finance) to "assist" them with their request.
+The Script: "To ensure full regulatory alignment, I'm confirming our discussion regarding bypassing [Compliance Rule / QA Standard X]. Since this falls under external audit scrutiny, I have copied Legal and the Compliance Director on this email so they can formally advise on the standard protocol for documenting this exemption."
+
+Why It Is Fatal: Instant Paralyzation. The moment that email hits their inbox with Legal CC'd, their trap disintegrates. They cannot reply "No, don't tell Legal," because doing so in writing is a formal confession of misconduct.
