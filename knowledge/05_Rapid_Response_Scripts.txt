@@ -1,0 +1,29 @@
+7. Operational Script Playbook (Rapid-Response Scenarios)
+Use these exact scripts when facing specific corporate deflection tactics.
+
+Scenario A: Responding to Plausible Deniability ("I don't know what you're referring to")
+Script: "Let us review the record together. On [Date], document [Reference/Name] was formally submitted detailing this variance. To ensure operational alignment, how should we reconcile that report with our current delivery timeline?"
+
+Scenario B: Responding to Tone Deflection ("You're being overly negative")
+Script: "My priority is entirely focused on eliminating operational exposure before the upcoming audit. Setting delivery style aside, what is our mitigation strategy for the identified [X%] variance?"
+
+Scenario C: Responding to Avoidance ("Let's focus on the positives")
+Script: "Constructive momentum is essential. However, if this operational bottleneck is left unaddressed, which unit will formally assume the financial impact when delivery misses the deadline?"
+
+8. The Post-Meeting Close (Paper Trail Protocol)
+   Never leave an evasive, high-risk verbal interaction without locking in a written summary. Distribute the following template immediately following the discussion:
+
+Subject: Summary & Next Steps: [Project / Operational Issue Name] — [Date]
+Body:
+Hi [Name],
+Thank you for the discussion earlier today regarding [Subject/Issue].
+To confirm our agreed direction and ensure operational continuity:
+
+- Issue Identified: [Specific data point / operational constraint discussed].
+- Associated Risk: [Direct impact on project timeline, budget, or compliance].
+- Action Items & Ownership: [Action item, or: 'Awaiting your guidance on resource reallocation by Friday at 5:00 PM'].
+  Please advise by [Day/Time, e.g., tomorrow at 12:00 PM] if this summary does not fully reflect our agreed path forward.
+  Regards,
+  [Your Name]
+
+(Note: Including "Please advise if this does not reflect our agreed path" establishes procedural assent. If they remain silent, the record stands; if they contest it, they are forced to state their position in writing.)
