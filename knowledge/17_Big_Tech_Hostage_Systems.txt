@@ -1,0 +1,56 @@
+The Big Tech Hostage Systems
+Tech giants don't build ecosystems just for convenience; they build them to make departure psychologically, operationally, and financially exhausting. Once you enter, the cost of leaving is engineered to exceed the cost of staying.
+
+Google: The Unified 15 GB Storage Chokepoint
+Google collapsed Gmail, Google Photos, and Google Drive into a single shared 15 GB quota under Google One, after ending unlimited free photo storage. If unmanaged junk mail or high-resolution camera backups fill the quota, Google halts incoming and outgoing emails. Users are forced into a recurring monthly subscription under the threat of losing access to essential everyday communications.
+
+Apple: The 5 GB Stagnant iCloud Trap & Velvet Handcuffs
+Apple keeps its base free iCloud storage capped at 5 GB—a number that hasn't changed since 2011, even as 4K video and camera sensor sizes exploded. Because native system backups and original-resolution photos default to iCloud, your entire digital life quickly swells past that threshold. Canceling means your phone stops backing up and local photo libraries risk compression or data loss. By deliberately degrading cross-platform messaging (green bubbles, compressed shared video) and anchoring single-ecosystem accessories (Apple Watch requires an iPhone), departing the ecosystem carries extreme hardware and social replacement penalties.
+
+Amazon: 'Project Iliad' & The Logistics Monopoly
+Amazon spent billions building a fulfillment network that makes rapid delivery the baseline expectation for physical goods. Amazon engineered 'Project Iliad,' a multi-page cancellation maze loaded with guilt-trip copy and confusing buttons designed to slow down Prime cancellations. Simultaneously, Prime is intentionally bloated with low-marginal-cost digital services (Prime Video, Music, Reading) bundled with physical delivery, obscuring the actual costs and preventing consumers from evaluating what they are paying for.
+
+Microsoft: Proprietary File Locks & OneDrive OS Hijacking
+Microsoft migrated millions of users from one-time perpetual software licenses (Office 2016/2019) to a continuous recurring subscription model (Microsoft 365). If you cancel, desktop applications drop into read-only mode, stripping away your ability to edit your own professional files (.docx, .xlsx, .pptx). Concurrently, Windows aggressively defaults desktop, documents, and picture folders to sync directly into OneDrive. Exceeding the 5 GB free limit halts syncing and triggers persistent OS pop-ups, creating deep technical friction to decouple.
+
+The Big Three Lock-In Matrix:
+
+Apple: The Hook is clean design; The Hostage is family photos/backups; The Exit Penalty is replacing accessories and data migration friction.
+
+Amazon: The Hook is fast delivery; The Hostage is household logistics/smart home; The Exit Penalty is loss of rapid shipping and rewiring automations.
+
+Microsoft: The Hook is universal compatibility; The Hostage is professional file access/OS sync; The Exit Penalty is loss of editing rights and OS disruption.
+
+15 Corporate Extraction Case Studies:
+
+Amazon (Roach Motel): Multi-step maze ('Project Iliad') to exit Prime.
+
+Adobe (Hidden Contract): Massive 50% early termination fee on monthly-paid annual plans.
+
+Google (Chokepoint): Bundled 15 GB quota; blocking core email to force Google One storage.
+
+Apple (Manufactured Anxiety): Constant un-dismissible pop-up alerts on 5 GB cloud limit.
+
+Match Group (Algorithmic Drought): Throttling organic visibility and blurring matches to sell passes.
+
+Meta (Pay-or-Consent): Forcing payment to opt out of aggressive behavioral tracking.
+
+Planet Fitness (Physical Barrier): Blocking online cancellations; requiring registered letters or visits.
+
+New York Times (Human Friction): Mandatory retention chat queues to cancel promotional offers.
+
+TurboTax (Sunk Cost): Paywalling file submissions after an hour of data entry.
+
+Canva (Asset Lock): Restricting exports on finished work containing minor premium assets.
+
+Spotify (Feature Stripping): Disabling scrubbing and skip controls to make free listening tedious.
+
+LinkedIn (Curiosity Bait): Blurring profile views to push expensive premium job tiers.
+
+Duolingo (Energy Gating): Heart timeouts on mistakes to stall daily language progress.
+
+HP (Hardware Bricking): Remotely disabling physical ink cartridges when subscriptions lapse.
+
+Uber / DoorDash (Sneak-In Billing): Pre-ticking subscription sign-ups on discount coupons.
+
+INSTRUCTION TO JAFAI: The list above is not exhaustive. When a user asks about a specific company or service not listed here, you must analyze the service's pricing, cancellation process, and ecosystem lock-in. Map the user's experience against the known Dark Patterns (Bait-and-Switch, Forced Degradation, Roach Motel, etc.) and explain the structural extraction mechanism they are facing. Give them a tactical counter-play to bypass the trap.
