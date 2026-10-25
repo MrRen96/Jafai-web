@@ -1,0 +1,35 @@
+4. The 'Restructure' Musical Chairs (The Constructive Eviction)
+The Behavioral Play: Stripping an experienced worker of core duties and assigning menial tasks to provoke voluntary resignation and avoid severance payouts.
+The Unarguable Reality: Radically altering an employee's substantive scope of work without consultation is an actionable contractual breach. Stripping duties and assigning menial busywork is constructive dismissal designed to force resignation through professional humiliation.
+
+5. The 'Feedback' Gaslight & Public Humiliation Loop
+   The Behavioral Play: Delivering factually distorted criticism, then branding any factual defense as 'defensiveness' and 'resistance to coaching.'
+   The Unarguable Reality: Feedback without factual accuracy is defamation. Correcting the record is basic operational accuracy; demanding silent acquiescence to falsehood is an attempt to enforce submission.
+
+Ego-Preservation Paralysis & The Reality Rewrite
+When someone realizes they are dead wrong but their internal identity is too fragile to admit it, they enter Ego-Preservation Paralysis:
+
+- The Glass-Eyed Glaze: Staring blankly at written proof and claiming 'we interpret this differently' to stall for an emergency exit.
+- The Sovereign Reality Bubble: Flatly denying what is physically recorded ('That's not how it rolled out') to bait you into subjective philosophical debates.
+- The Preemptive Offense: DARVO (Deny, Attack, Reverse Victim and Offender)—attacking your tone or claiming you are playing 'gotcha' games to make competence look like malice.
+  The Unarguable Reality: Evidence does not require an ego's permission to be true. A server log, bank debit, or signed directive exists independently of whether a manager likes it. Do not debate feelings; bind the facts to the official record in writing.
+
+The Anatomy of the Retcon & Moving Goalposts:
+
+- The Memory Wipe Ambush: Giving verbal orders to ship a feature, then publicly feigning amnesia when trade-offs arise: 'Why did you ship that? I never told you to ship that.'
+- The Moving Goalpost Mirage: Altering victory conditions after full KPI delivery, re-labeling 100% target achievement as 'bare minimum' to withhold incentives.
+  The Unarguable Reality: Memory is subjective; timestamps are immutable. Code commits, calendar entries, sent folders, and audit logs do not suffer from sudden amnesia. Counter reality-rewriting with real-time chronological anchors.
+
+The Departure Clawback Trap & The Exit Air-Gap:
+
+1. Phantom Hardware Damage Fees: Claiming returned, fully depreciated laptops have 'display damage' to deduct $1,800 from final balances after physical custody is handed over.
+2. Weaponized Training Bonds: Reclassifying routine internal onboarding modules as $4,500 'advanced certifications' subject to 24-month repayment clawbacks.
+3. Unilateral Wage Deductions: Unilaterally seizing accrued holiday pay or final wages, banking on employee cash-flow panic to prevent legal disputes.
+   The 4D Exit Air-Gap: Build the defense two weeks before handing over notice: record an unedited 60-second video of functional hardware on handover, secure signed hardware receipts, formally revoke general deduction permissions in the resignation letter, and issue immediate statutory notices under the Wages Protection Act upon any balance withholding.
+
+Weaponized Incompetence & Strategic Ignorance:
+
+1. The Tactical Reset: Pretending to be baffled by errors ('I've literally never seen the system do that!') to lower room temperature and exhaust complainant stamina.
+2. Shielding Leadership Liability: Playing dumb to avoid admitting intentional corporate policy, ensuring bad faith cannot be proven in tribunals.
+3. The Infinite Deferral: Shrugging shoulders and claiming back-office algorithms handle decisions, severing the link between the gatekeeper and the decision.
+   The Street-Smart Counter: Never buy the 'first time' lie; remove the emotional buffer ('as the designated representative, you hold statutory responsibility'); and force written confirmation that the charge has no policy justification.
