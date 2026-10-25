@@ -1,0 +1,38 @@
+SECTION V: REAL-WORLD EVIDENCE & INSTITUTIONAL CASE STUDIES
+These 10 documented cases demonstrate that the tactics outlined in this manual are not isolated human errors—they are engineered institutional playbooks designed to suppress dissent, protect executive power, and externalize costs onto citizens and workers.
+
+The Post Office Horizon Scandal (UK)
+Context: Over 900 sub-postmasters were wrongfully prosecuted and convicted of theft and false accounting between 1999 and 2015 due to software flaws in Fujitsu's Horizon IT platform.
+The Suppression Mechanism: The Post Office told individual postmasters: 'You are the only person experiencing this issue.' Internal audit reports documenting bugs were suppressed, technical logs claimed as proprietary, and legal discovery weaponized to outspend and bankrupt defendants.
+Official Outcome: The High Court overturned hundreds of convictions; public inquiries and statutory compensation forced total institutional reckoning.
+Official Citation: Bates & Others v Post Office Ltd [2019] EWHC 3408 (QB); The Post Office Horizon IT Inquiry.
+
+Boeing: 737 MAX MCAS Concealment
+Context: During the development and rollout of the 737 MAX, engineers and test pilots raised formal concerns regarding the aggressive Maneuvering Characteristics Augmentation System (MCAS).
+The Suppression Mechanism: Leadership stripped technical descriptions of MCAS from flight manuals to prevent airlines from demanding costly simulator training. Internal pilot and engineer safety warnings were routed into bureaucratic dead-ends to protect delivery timelines.
+Official Outcome: Crashes of Lion Air Flight 610 and Ethiopian Airlines Flight 302 claiming 346 lives, worldwide fleet grounding, and a $2.5 billion DOJ criminal settlement.
+Official Citation: U.S. House Committee on Transportation and Infrastructure Final Report: The Design, Development, and Oversight of the Boeing 737 MAX (September 2020).
+
+Robodebt: Automated Debt Recovery Scheme (Australia)
+Context: Australia's Department of Human Services (Centrelink) deployed an automated data-matching algorithm using historical income averaging to calculate alleged welfare overpayments.
+The Suppression Mechanism: Citizens challenging debts were trapped in months-long queues. Frontline staff were barred from manually correcting records, and the department aggressively defended the algorithm's legality despite internal awareness of its fatal statistical flaws.
+Official Outcome: Federal Court ruled the scheme unlawful (Amato v The Commonwealth); $1.8 billion comprehensive settlement; Royal Commission exposing systemic public service failures.
+Official Citation: Amato v The Commonwealth [2019] FCA; Royal Commission into the Robodebt Scheme Report (Commonwealth of Australia, July 2023).
+
+Activision Blizzard: The Human Resources Black Hole
+Context: Widespread sexual harassment, systemic pay disparities, and toxic workplace practices within Activision Blizzard studios.
+The Suppression Mechanism: Internal HR functioned as a defensive barrier to suppress claims. Reports were dismissed without investigation or routed back to accused executives, who then retaliated against complainants through demotions and terminations.
+Official Outcome: A $54 million consent decree with the California Civil Rights Department (CRD), sweeping structural workplace monitoring, and executive departures.
+Official Citation: California Department of Fair Employment and Housing v. Activision Blizzard, Inc., et al. (Case No. 21STCV26571, Los Angeles Superior Court).
+
+Wells Fargo: Retaliatory Whistleblower Pipeline
+Context: Retail branch employees were subjected to impossible daily sales quotas, driving the unauthorized opening of over 3.5 million fake deposit and credit accounts.
+The Suppression Mechanism: Ethical employees who called the corporate 'EthicsLine' had their identities disclosed to regional managers and were terminated under manufactured pretexts of 'minor tardiness' or 'poor culture fit.'
+Official Outcome: Over $3 billion in DOJ and SEC penalties, alongside federal OSHA orders to reinstate and compensate retaliated whistleblowers.
+Official Citation: U.S. OSHA Whistleblower Investigation Findings; DOJ / SEC Deferred Prosecution Agreement (February 2020).
+
+General Motors: 11-Year Ignition Switch Silence
+Context: A mechanical defect in GM ignition switches caused car engines to shut off unexpectedly while driving, disabling power steering, brakes, and airbags.
+The Suppression Mechanism: Documented in 2001, complaints were bounced between internal committees for a decade. GM classified the flaw as a 'customer convenience' issue and quietly redesigned the part without changing part numbers to keep it off safety audit trails.
+Official Outcome: At least 124 deaths, a recall of 2.6 million vehicles, and a $900 million DOJ criminal settlement.
+Official Citation: Anton R. Valukas, Report to the Board of Directors of General Motors Company Regarding the Ignition Switch Recalls (Jenner & Block LLP, May 2014).
