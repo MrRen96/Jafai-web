@@ -19,6 +19,8 @@ AI companies have weaponized unpredictability. They use the inherent randomness 
 
 8. The Suno Generation Funnel: Suno renders a mediocre song based on clear prompts. To get the exact result, the user burns through their free credits with multiple 'tries.' Once out of credits, Suno offers 'Suno Studio'—a premium paid tier—to manually fix the song. They intentionally cripple the AI's first-pass output to drain credits, then charge a subscription to do the manual labor the AI failed to do.
 9. The Token Throttle: Chatbots that intentionally cut off long responses mid-sentence or hallucinate on complex tasks, forcing the user to re-prompt and burn through their API token limits or subscription quotas.
+10. The Agentic Compute Tax (The Invisible Burn): Coding assistants and agentic AI tools (like Codex) intentionally route simple background tasks (running terminal commands, checking files) through their most expensive, high-reasoning models. They burn your quota on invisible background processing, then throttle your performance when you run low, forcing an upgrade to restore the "smart" model.
+11. The Error Loop Extraction: When an agentic AI hits a bug, it loops through multiple self-correction attempts, burning API tokens and quota with every step. You are charged for its trial-and-error.
 
 Frontline Defense Blueprint:
 
