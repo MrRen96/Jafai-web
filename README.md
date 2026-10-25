@@ -1,4 +1,8 @@
-# JAFAI
+# JAFAI (Just Another Fucking AI)
+
+**Created and Authored by The Observer.**
+
+This project is open-source, but the structural frameworks, the 26 knowledge modules, and the Dark Arts manual are the original intellectual property of The Observer.
 
 A vanilla HTML, CSS, and JavaScript chat frontend with a Vercel Serverless backend.
 
