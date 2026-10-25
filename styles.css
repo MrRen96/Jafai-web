@@ -135,7 +135,7 @@ body.sidebar-open { --sidebar-offset: 260px; }
 .message-author { font-size: 12px; font-weight: 600; }
 .message--assistant .message-author { color: var(--orange); letter-spacing: .06em; }
 .message-time { color: #7d7d7d; font-size: 11px; }
-.message-body { max-width: 90%; margin: 0; padding: 24px 20px; border-radius: 8px; background: #242424; line-height: 1.8; font-size: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.message-body { max-width: 90%; margin: 0; padding: 24px; border-radius: 8px; background: #242424; line-height: 1.6; font-size: 21px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .message--assistant .message-body { background: #090909; border-left: 2px solid var(--orange); }
 .message--assistant .message-body--error { border-left-color: var(--red); color: #efb0a7; }
 .fade-in-word { position: relative; animation: fade-in-word .2s ease-out both; }
