@@ -117,6 +117,8 @@ body.sidebar-open { --sidebar-offset: 260px; }
 .eyebrow { color: var(--orange); font-size: 10px; font-weight: 650; letter-spacing: .2em; }
 .empty-state h1 { margin: 0; font-size: clamp(30px, 5vw, 46px); font-weight: 550; line-height: 1.15; letter-spacing: -.045em; }
 .message { margin: 0 0 24px; }
+/* Leave enough room below a new reply to align its beginning before it grows. */
+.message--assistant:last-child { min-height: calc(100% - 24px); scroll-margin-top: 12px; }
 .message-actions { display: flex; gap: 12px; min-height: 32px; opacity: 0; pointer-events: none; }
 .message:hover .message-actions, .message:focus-within .message-actions { opacity: 1; pointer-events: auto; }
 .message-action, .message-edit button, .message-menu button { min-height: 44px; padding: 4px 0; border: 0; border-radius: 0; background: transparent; color: #858585; font: inherit; font-size: 12px; cursor: pointer; }

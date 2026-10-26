@@ -44,13 +44,13 @@ Type a message and press Enter or click the arrow to send. Shift+Enter adds a
 new line. The frontend posts `{ "message": "...", "history": [...] }` to `/api/chat`, which
 returns DeepSeek's raw server-sent events (SSE), or a JSON `error` before the
 stream begins. The browser decodes content deltas incrementally into fading
-text spans, scrolling as the answer grows. Reduced-motion preferences disable
-the animation. Interrupted streams retain partial text with an inline error.
+text spans. Sending smoothly reveals the start of the new JAFAI reply; incoming
+chunks and completion leave the reading position unchanged. Reduced-motion
+preferences disable smooth scrolling and fading. Interrupted streams retain partial text with an inline error.
 On mobile, keyboard resizes update the visible app height and viewport offset.
-Input focus reveals the latest message, and each streamed chunk forces the chat
-to the bottom immediately and after the next mobile layout frame.
+Input focus reveals the beginning of the latest reply, not its final line.
 On mobile, Send blurs the input to dismiss the keyboard, then rechecks viewport
-size and scrolls again after 150ms. Flex layout reserves the composer's actual
+size and reveals the same reply's beginning after 150ms. Flex layout reserves the composer's actual
 height below the scroll region, which keeps 24px of bottom padding. Desktop
 Send retains its existing input focus.
 The viewport meta tag requests `interactive-widget=resizes-content`; VisualViewport supplies

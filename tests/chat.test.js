@@ -1087,10 +1087,10 @@ test("send paints the user message, clears input, and reveals the response div b
     sequence.push("fetch");
     assert.equal(ui.input.value, "");
     assert.equal(ui.messages.lastElementChild.children[1].tagName, "DIV");
-    assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
+    assert.notEqual(ui.messages.scrollTop, ui.messages.scrollHeight);
     assert.equal(ui.cssProperties.get("--dock-height"), "164px");
     assert.equal(ui.input.blurred, true);
-    assert.equal(ui.messages.lastElementChild.scrollIntoViewOptions.block, "end");
+    assert.equal(ui.messages.lastElementChild.scrollIntoViewOptions.block, "start");
     return sseResponse("Reply");
   }, { mobile: true });
   const append = ui.messages.append.bind(ui.messages);
@@ -1104,10 +1104,10 @@ test("send paints the user message, clears input, and reveals the response div b
   ui.input.value = "Question";
   await ui.submit();
   assert.deepEqual(sequence, [{ author: "You", input: "Question" }, { author: "JAFAI", input: "" }, "fetch"]);
-  assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
+  assert.notEqual(ui.messages.scrollTop, ui.messages.scrollHeight);
 });
 
-test("mobile send dismisses the keyboard and scrolls after 150ms while desktop retains focus", async () => {
+test("mobile send dismisses the keyboard and reveals the response start after 150ms", async () => {
   const mobile = frontend(async () => sseResponse("Answer"), { mobile: true });
   mobile.input.focus();
   mobile.input.value = "Question";
@@ -1119,7 +1119,8 @@ test("mobile send dismisses the keyboard and scrolls after 150ms while desktop r
   mobile.messages.scrollHeight = 900;
   mobile.messages.scrollTop = 0;
   mobile.keyboardTimers[0]();
-  assert.equal(mobile.messages.scrollTop, 900);
+  assert.equal(mobile.messages.scrollTop, 0);
+  assert.equal(mobile.messages.lastElementChild.scrollIntoViewOptions.block, "start");
   assert.equal(mobile.cssProperties.get("--keyboard-inset"), "0px");
   assert.equal(mobile.cssProperties.get("--mobile-viewport-height"), "800px");
   const desktop = frontend(async () => sseResponse("Answer"));
@@ -1168,7 +1169,7 @@ test("mobile focus reveals the latest message and keyboard viewport changes rese
   ui.input.focus();
   ui.input.events.focus();
   ui.paint();
-  assert.equal(latest.scrollIntoViewOptions.block, "end");
+  assert.equal(latest.scrollIntoViewOptions.block, "start");
   assert.equal(latest.scrollIntoViewOptions.behavior, "instant");
   ui.visualViewport.height = 450;
   ui.visualViewport.offsetTop = 20;
@@ -1178,7 +1179,7 @@ test("mobile focus reveals the latest message and keyboard viewport changes rese
   assert.equal(ui.cssProperties.get("--keyboard-inset"), "330px");
   assert.equal(ui.cssProperties.get("--mobile-viewport-offset"), "20px");
   assert.ok(latest.scrollIntoViewCalls >= 2);
-  assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
+  assert.notEqual(ui.messages.scrollTop, ui.messages.scrollHeight);
   ui.visualViewport.height = 800;
   ui.visualViewport.offsetTop = 0;
   ui.viewportEvents.resize();
@@ -1200,7 +1201,8 @@ test("keyboard focus logic leaves desktop unchanged and supports mobile without 
   desktop.visualViewport.height = 400;
   desktop.viewportEvents.resize();
   desktop.paint();
-  assert.equal(desktop.messages.lastElementChild.scrollIntoViewCalls, undefined);
+  assert.equal(desktop.messages.lastElementChild.scrollIntoViewCalls, 1);
+  assert.equal(desktop.messages.lastElementChild.scrollIntoViewOptions.block, "start");
   assert.equal(desktop.cssProperties.has("--mobile-viewport-height"), false);
   assert.equal(desktop.cssProperties.has("--keyboard-inset"), false);
   const mobile = frontend(async () => sseResponse(), { mobile: true, noVisualViewport: true });
@@ -1211,7 +1213,7 @@ test("keyboard focus logic leaves desktop unchanged and supports mobile without 
   assert.equal(mobile.cssProperties.get("--keyboard-inset"), "0px");
 });
 
-test("each streamed chunk forces scroll-to-bottom even after the user or keyboard changed scroll position", async () => {
+test("streaming and completion preserve the reading position without chasing the bottom", async () => {
   let stream;
   let painted;
   const ui = frontend(async () => new Response(new ReadableStream({ start(controller) { stream = controller; } }), {
@@ -1227,13 +1229,16 @@ test("each streamed chunk forces scroll-to-bottom even after the user or keyboar
     ui.messages.scrollTop = 0;
     stream.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`));
     await arrived;
-    assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
+    assert.equal(ui.messages.scrollTop, 0);
     ui.messages.scrollTop = 0;
     ui.paint();
-    assert.equal(ui.messages.scrollTop, ui.messages.scrollHeight);
+    assert.equal(ui.messages.scrollTop, 0);
   }
+  const calls = ui.messages.lastElementChild.scrollIntoViewCalls;
   stream.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
   await pending;
+  assert.equal(ui.messages.scrollTop, 0);
+  assert.equal(ui.messages.lastElementChild.scrollIntoViewCalls, calls);
 });
 
 test("backend forwards bytes before upstream completes and aborts on client disconnect", async (t) => {

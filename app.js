@@ -300,25 +300,18 @@ let saveTimer = null;
 let storageReadable = true;
 let isSending = false;
 let isExporting = false;
-let scrollFrame = null;
+let responseStart = null;
 let viewportFrame = null;
 let sidebarOpen = false;
 
-function scrollChatToBottom() {
-  messages.scrollTop = messages.scrollHeight;
-  // Reapply after mobile layout changes have been painted, without smoothing.
-  if (mobileLayout.matches && scrollFrame === null) {
-    scrollFrame = requestAnimationFrame(() => {
-      scrollFrame = null;
-      messages.scrollTop = messages.scrollHeight;
-    });
-  }
+function revealResponseStart(behavior = "smooth") {
+  const target = responseStart || messages.lastElementChild;
+  target?.scrollIntoView({ block: "start", inline: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : behavior });
 }
 
 function revealLatestMessage() {
   if (!mobileLayout.matches) return;
-  messages.lastElementChild?.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" });
-  scrollChatToBottom();
+  revealResponseStart("instant");
 }
 
 function updateMobileViewport() {
@@ -345,7 +338,6 @@ function handleMobileViewportChange() {
     viewportFrame = null;
     updateMobileViewport();
     if (document.activeElement === input) revealLatestMessage();
-    else scrollChatToBottom();
   });
 }
 
@@ -577,6 +569,7 @@ function renderHistory() {
 }
 
 function renderConversation() {
+  responseStart = null;
   activeEditor?.cancel();
   closeMessageMenu();
   actionEntries = [];
@@ -663,7 +656,6 @@ function appendImage(body, image) {
   preview.className = "message-image";
   preview.src = image;
   preview.alt = "Attached image";
-  preview.addEventListener("load", scrollChatToBottom);
   body.append(preview);
 }
 
@@ -689,7 +681,6 @@ function appendMessage(author, content, timestamp = new Date().toISOString(), da
   message.append(meta, body);
   addMessageActions(message, body, data);
   messages.append(message);
-  scrollChatToBottom();
   return body;
 }
 
@@ -783,14 +774,16 @@ async function sendMessage(text, image, editedMessage = null) {
   if (!editedMessage) { clearImage(); input.value = ""; }
   updateComposer();
   const replyBody = appendMessage("JAFAI", "Thinking…", assistantMessage.timestamp, assistantMessage);
+  responseStart = messages.lastElementChild;
+  const responseTarget = responseStart;
   replyBody.setAttribute("aria-busy", "true");
   if (mobileLayout.matches) {
     input.blur();
     document.activeElement?.blur();
     setTimeout(() => {
-      if (activeSessionId !== session.id) return;
+      if (activeSessionId !== session.id || responseStart !== responseTarget) return;
       updateMobileViewport();
-      scrollChatToBottom();
+      revealResponseStart("instant");
     }, 150);
   } else {
     input.focus({ preventScroll: true });
@@ -798,8 +791,7 @@ async function sendMessage(text, image, editedMessage = null) {
   // Measure the cleared composer now rather than waiting for ResizeObserver.
   document.documentElement.style.setProperty("--dock-height", `${dock.offsetHeight}px`);
   updateMobileViewport();
-  if (mobileLayout.matches) revealLatestMessage();
-  scrollChatToBottom();
+  revealResponseStart();
   saveSessions();
   renderHistory();
   let hasReply = false;
@@ -834,8 +826,6 @@ async function sendMessage(text, image, editedMessage = null) {
       span.className = "fade-in-word";
       span.textContent = text;
       replyBody.append(span);
-      // Every delta must reveal its final line before any persistence work.
-      scrollChatToBottom();
       assistantMessage.content += text;
       updateMessageCopyState();
       scheduleSave();
@@ -874,7 +864,6 @@ async function sendMessage(text, image, editedMessage = null) {
       isSending = false;
       saveSessions();
       updateComposer();
-      scrollChatToBottom();
     }
   }
 }
@@ -906,10 +895,9 @@ input.addEventListener("keydown", (event) => {
   }
 });
 
-// Track composer growth and keep the latest message visible as the textarea resizes.
+// Track composer growth without changing the user's reading position.
 new ResizeObserver(() => {
   document.documentElement.style.setProperty("--dock-height", `${dock.offsetHeight}px`);
-  scrollChatToBottom();
 }).observe(dock);
 
 sidebarToggle.addEventListener("click", () => setSidebar(true));
