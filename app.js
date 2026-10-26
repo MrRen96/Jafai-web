@@ -140,18 +140,17 @@ function editMessage(entry) {
   error.className = "message-edit-error";
   error.setAttribute("role", "alert");
   error.hidden = true;
+  let closed = false;
   const finish = () => {
+    if (closed) return;
+    closed = true;
     entry.body.hidden = false;
     entry.actions.hidden = false;
     editor.remove();
     activeEditor = null;
   };
   const submit = () => {
-    if (isReadingImage) {
-      error.textContent = "Wait for the selected image to finish loading.";
-      error.hidden = false;
-      return;
-    }
+    if (closed) return;
     const text = field.value.trim();
     if (!text || text.length > 10000) {
       error.textContent = "Enter between 1 and 10,000 characters.";
@@ -162,8 +161,24 @@ function editMessage(entry) {
     finish();
     return sendMessage(text, entry.data.image, entry.data);
   };
-  save.addEventListener("click", submit);
-  cancel.addEventListener("click", finish);
+  // Commit touch actions before keyboard dismissal can move the tapped button.
+  // Click remains the keyboard/mouse fallback; finish makes duplicate events safe.
+  const bindAction = (button, action) => {
+    button.addEventListener("pointerdown", (event) => { event.preventDefault(); });
+    button.addEventListener("pointerup", (event) => {
+      if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+      event.preventDefault();
+      event.stopPropagation();
+      return action();
+    });
+    button.addEventListener("click", (event) => {
+      event?.preventDefault();
+      event?.stopPropagation();
+      return action();
+    });
+  };
+  bindAction(save, submit);
+  bindAction(cancel, finish);
   field.addEventListener("keydown", (event) => {
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); finish(); }
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); return submit(); }
@@ -740,7 +755,7 @@ async function readChatStream(response, onText) {
 }
 
 async function sendMessage(text, image, editedMessage = null) {
-  if (!text || isReadingImage || (!editedMessage && isSending)) return;
+  if (!text || (!editedMessage && (isReadingImage || isSending))) return;
   if (editedMessage) {
     if (!latestUser(editedMessage)) return;
     stopResponse();

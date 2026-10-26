@@ -444,6 +444,63 @@ test("editing the latest user message replaces its reply, preserves earlier cont
   assert.equal(sent.length, 3);
 });
 
+test("mobile touch Save exits editing, removes the old reply and streams exactly one new request", async () => {
+  const sent = [];
+  let resolveReply;
+  const ui = frontend((_url, options) => {
+    sent.push(JSON.parse(options.body));
+    return sent.length === 1 ? Promise.resolve(sseResponse("Original reply")) : new Promise(resolve => { resolveReply = resolve; });
+  }, { mobile: true });
+  ui.input.value = "Original question";
+  await ui.submit();
+  const original = ui.messages.children[0];
+  original.children[1].events.pointerdown({ pointerType: "touch", clientX: 20, clientY: 20 });
+  ui.hold();
+  ui.nodes["#edit-message"].events.click();
+  const editor = original.children.at(-1);
+  editor.children[0].value = "Edited question";
+  const save = editor.children[1];
+  let focusPreserved = false;
+  save.events.pointerdown({ preventDefault() { focusPreserved = true; } });
+  assert.equal(focusPreserved, true);
+  const pending = save.events.pointerup({ pointerType: "touch", preventDefault() {}, stopPropagation() {} });
+  assert.equal(sent.length, 2);
+  assert.deepEqual(sent[1], { message: "Edited question", history: [] });
+  assert.equal(original.children.includes(editor), false);
+  assert.equal(ui.messages.children.length, 2);
+  assert.equal(ui.messages.children[0].children[1].textContent, "Edited question");
+  assert.equal(ui.messages.children[1].children[1].textContent, "Thinking…");
+  assert.ok(!ui.messages.textContent.includes("Original reply"));
+  save.events.click();
+  assert.equal(sent.length, 2);
+  resolveReply(sseResponse("Regenerated reply"));
+  await pending;
+  assert.equal(ui.messages.children[1].children[1].textContent, "Regenerated reply");
+  const saved = JSON.parse(ui.storage.get("jafai.chatSessions.v1"))[0];
+  assert.deepEqual(saved.messages.map(message => message.content), ["Edited question", "Regenerated reply"]);
+  assert.equal(ui.button.disabled, true);
+});
+
+test("mobile touch Cancel restores the original bubble and reply without an API call", async () => {
+  let calls = 0;
+  const ui = frontend(async () => { calls++; return sseResponse("Original reply"); }, { mobile: true });
+  ui.input.value = "Original question";
+  await ui.submit();
+  const original = ui.messages.children[0];
+  original.children[2].children[1].events.click();
+  const editor = original.children.at(-1);
+  editor.children[0].value = "Discard me";
+  const cancel = editor.children[2];
+  cancel.events.pointerup({ pointerType: "touch", preventDefault() {}, stopPropagation() {} });
+  cancel.events.click();
+  assert.equal(calls, 1);
+  assert.equal(original.children.includes(editor), false);
+  assert.equal(original.children[1].hidden, false);
+  assert.equal(original.children[2].hidden, false);
+  assert.equal(original.children[1].textContent, "Original question");
+  assert.equal(ui.messages.children[1].children[1].textContent, "Original reply");
+});
+
 test("editing a streaming message cancels stale output and keeps the original attachment", async () => {
   let resolveOld;
   const sent = [];
