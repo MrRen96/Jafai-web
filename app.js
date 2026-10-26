@@ -82,7 +82,7 @@ const toast = document.querySelector("#message-toast");
 let menuTarget = null;
 let toastTimer = null;
 let actionEntries = [];
-let activeEditor = null;
+let editTarget = null;
 
 function latestUser(message) {
   const session = sessions.find((item) => item.id === activeSessionId);
@@ -122,73 +122,22 @@ messageMenu.addEventListener("click", (event) => { if (event.target === messageM
 
 function editMessage(entry) {
   if (!latestUser(entry.data)) return;
-  activeEditor?.cancel();
-  const sessionId = activeSessionId;
-  const editor = document.createElement("div");
-  editor.className = "message-edit";
-  const field = document.createElement("textarea");
-  field.value = entry.data.content;
-  field.maxLength = 10000;
-  field.setAttribute("aria-label", "Edit your last message");
-  const save = document.createElement("button");
-  save.type = "button";
-  save.textContent = "Save";
-  const cancel = document.createElement("button");
-  cancel.type = "button";
-  cancel.textContent = "Cancel";
-  const error = document.createElement("p");
-  error.className = "message-edit-error";
-  error.setAttribute("role", "alert");
-  error.hidden = true;
-  let closed = false;
-  const finish = () => {
-    if (closed) return;
-    closed = true;
-    entry.body.hidden = false;
-    entry.actions.hidden = false;
-    editor.remove();
-    activeEditor = null;
-  };
-  const submit = () => {
-    if (closed) return;
-    const text = field.value.trim();
-    if (!text || text.length > 10000) {
-      error.textContent = "Enter between 1 and 10,000 characters.";
-      error.hidden = false;
-      return;
-    }
-    if (sessionId !== activeSessionId || !latestUser(entry.data)) { finish(); return; }
-    finish();
-    return sendMessage(text, entry.data.image, entry.data);
-  };
-  // Commit touch actions before keyboard dismissal can move the tapped button.
-  // Click remains the keyboard/mouse fallback; finish makes duplicate events safe.
-  const bindAction = (button, action) => {
-    button.addEventListener("pointerdown", (event) => { event.preventDefault(); });
-    button.addEventListener("pointerup", (event) => {
-      if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
-      event.preventDefault();
-      event.stopPropagation();
-      return action();
-    });
-    button.addEventListener("click", (event) => {
-      event?.preventDefault();
-      event?.stopPropagation();
-      return action();
-    });
-  };
-  bindAction(save, submit);
-  bindAction(cancel, finish);
-  field.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); finish(); }
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); return submit(); }
-  });
-  editor.append(field, save, cancel, error);
-  entry.body.hidden = true;
-  entry.actions.hidden = true;
-  entry.article.append(editor);
-  activeEditor = { cancel: finish };
-  field.focus();
+  stopResponse();
+  const session = sessions.find((item) => item.id === activeSessionId);
+  session.messages.splice(session.messages.indexOf(entry.data) + 1);
+  clearImage();
+  input.value = entry.data.content;
+  if (entry.data.image) {
+    pendingImage = entry.data.image;
+    imagePreview.src = pendingImage;
+    imageName.textContent = "Attached image";
+    imageAttachment.hidden = false;
+  }
+  renderConversation();
+  editTarget = entry.data;
+  saveSessions();
+  updateComposer();
+  input.focus({ preventScroll: true });
 }
 
 function addMessageActions(article, body, data) {
@@ -215,7 +164,7 @@ function addMessageActions(article, body, data) {
   const cancelHold = () => { clearTimeout(timer); timer = null; origin = null; };
   const openMenu = () => {
     cancelHold();
-    if (activeEditor || !actionEntries.includes(entry)) return;
+    if (!actionEntries.includes(entry)) return;
     menuTarget = entry;
     menuEdit.hidden = !latestUser(data);
     if (!messageMenu.open) messageMenu.showModal();
@@ -585,7 +534,7 @@ function renderHistory() {
 
 function renderConversation() {
   responseStart = null;
-  activeEditor?.cancel();
+  editTarget = null;
   closeMessageMenu();
   actionEntries = [];
   messages.replaceChildren();
@@ -755,7 +704,7 @@ async function readChatStream(response, onText) {
 }
 
 async function sendMessage(text, image, editedMessage = null) {
-  if (!text || (!editedMessage && (isReadingImage || isSending))) return;
+  if (!text || text.length > 10000 || isReadingImage || isSending) return;
   if (editedMessage) {
     if (!latestUser(editedMessage)) return;
     stopResponse();
@@ -764,7 +713,7 @@ async function sendMessage(text, image, editedMessage = null) {
     if (!session.messages.length) session.title = Array.from(text).slice(0, 30).join("");
     renderConversation();
   }
-  activeEditor?.cancel();
+  editTarget = null;
 
   isSending = true;
   let session = sessions.find((item) => item.id === activeSessionId);
@@ -786,7 +735,7 @@ async function sendMessage(text, image, editedMessage = null) {
   document.querySelector("#empty-state")?.remove();
   const userBody = appendMessage("You", text, userMessage.timestamp, userMessage);
   if (image) appendImage(userBody, image);
-  if (!editedMessage) { clearImage(); input.value = ""; }
+  clearImage(); input.value = "";
   updateComposer();
   const replyBody = appendMessage("JAFAI", "Thinking…", assistantMessage.timestamp, assistantMessage);
   responseStart = messages.lastElementChild;
@@ -865,8 +814,8 @@ async function sendMessage(text, image, editedMessage = null) {
     assistantMessage.content = replyBody.textContent;
     assistantMessage.status = "error";
     // Preserve the failed message for retry without replacing a new draft.
-    if (!editedMessage && !input.value) input.value = text;
-    if (!editedMessage && image && !pendingImage) {
+    if (!input.value) input.value = text;
+    if (image && !pendingImage) {
       pendingImage = image;
       imagePreview.src = image;
       imageName.textContent = "Image ready to retry";
@@ -891,7 +840,7 @@ form.addEventListener("submit", (event) => {
   event.preventDefault();
   const image = pendingImage;
   const text = input.value.trim() || (image ? "Analyze this image structurally." : "");
-  return sendMessage(text, image);
+  return sendMessage(text, image, editTarget);
 });
 
 input.addEventListener("input", updateComposer);
@@ -923,7 +872,7 @@ document.querySelector("#sidebar-close").addEventListener("click", () => setSide
 sidebarBackdrop.addEventListener("click", () => setSidebar(false));
 document.querySelector("#new-chat").addEventListener("click", () => selectSession(null));
 document.addEventListener("keydown", (event) => {
-  if (settingsDialog.open || messageMenu.open || activeEditor) return; // Dialogs and editors handle Escape first.
+  if (settingsDialog.open || messageMenu.open) return; // Dialogs and editors handle Escape first.
   if (event.key === "Escape" && sidebarOpen) setSidebar(false);
 });
 mobileLayout.addEventListener("change", () => {

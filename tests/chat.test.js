@@ -409,124 +409,59 @@ test("invalid attachments do not upload, removal clears the draft, and failed se
   assert.equal(ui.button.disabled, true);
 });
 
-test("editing the latest user message replaces its reply, preserves earlier context and the composer draft", async () => {
+test("Edit moves text to the composer and Send replaces the latest turn with fresh streamed context", async () => {
+  for (const mobile of [false, true]) {
+    const sent = [];
+    const ui = frontend(async (_url, options) => { sent.push(JSON.parse(options.body)); return sseResponse(`Reply ${sent.length}`); }, { mobile });
+    ui.input.value = "Earlier";
+    await ui.submit();
+    ui.input.value = "Original";
+    await ui.submit();
+    ui.messages.children[2].children[2].children[1].events.click();
+    assert.equal(ui.input.value, "Original");
+    assert.equal(ui.messages.children.length, 3);
+    assert.ok(!ui.messages.textContent.includes("Reply 2"));
+    assert.equal(sent.length, 2);
+    ui.input.value = "Revised";
+    await ui.submit();
+    assert.deepEqual(sent[2], { message: "Revised", history: [
+      { role: "user", content: "Earlier" }, { role: "assistant", content: "Reply 1" },
+    ] });
+    assert.equal(ui.input.value, "");
+    assert.equal(ui.messages.children.length, 4);
+    assert.equal(ui.messages.children[2].children[1].textContent, "Revised");
+    assert.equal(ui.messages.children[3].children[1].textContent, "Reply 3");
+    await ui.submit();
+    assert.equal(sent.length, 3);
+  }
+});
+
+test("composer editing stops stale streams, retains attachments, and clears edit state on New Chat", async () => {
   const sent = [];
-  const ui = frontend(async (_url, options) => { sent.push(JSON.parse(options.body)); return sseResponse(`Reply ${sent.length}`); });
-  ui.input.value = "First";
-  await ui.submit();
-  ui.input.value = "Original last";
-  await ui.submit();
-  assert.equal(ui.messages.children[0].children[2].children[1].hidden, true);
-  const latest = ui.messages.children[2];
-  latest.children[2].children[1].events.click();
-  let editor = latest.children.at(-1);
-  assert.equal(editor.children[0].value, "Original last");
-  editor.children[0].value = "   ";
-  editor.children[1].events.click();
-  assert.equal(editor.children[3].hidden, false);
-  assert.equal(sent.length, 2);
-  editor.children[0].value = "Revised last";
-  ui.input.value = "Unsent draft";
-  await editor.children[1].events.click();
-  assert.equal(sent.length, 3);
-  assert.deepEqual(sent[2], { message: "Revised last", history: [
-    { role: "user", content: "First" }, { role: "assistant", content: "Reply 1" },
-  ] });
-  const saved = JSON.parse(ui.storage.get("jafai.chatSessions.v1"))[0];
-  assert.deepEqual(saved.messages.map(message => message.content), ["First", "Reply 1", "Revised last", "Reply 3"]);
-  assert.equal(ui.input.value, "Unsent draft");
-  const last = ui.messages.children[2];
-  last.children[2].children[1].events.click();
-  editor = last.children.at(-1);
-  editor.children[0].value = "Cancelled";
-  editor.children[2].events.click();
-  assert.equal(last.children[1].hidden, false);
-  assert.equal(sent.length, 3);
-});
-
-test("mobile touch Save exits editing, removes the old reply and streams exactly one new request", async () => {
-  const sent = [];
-  let resolveReply;
-  const ui = frontend((_url, options) => {
-    sent.push(JSON.parse(options.body));
-    return sent.length === 1 ? Promise.resolve(sseResponse("Original reply")) : new Promise(resolve => { resolveReply = resolve; });
-  }, { mobile: true });
-  ui.input.value = "Original question";
-  await ui.submit();
-  const original = ui.messages.children[0];
-  original.children[1].events.pointerdown({ pointerType: "touch", clientX: 20, clientY: 20 });
-  ui.hold();
-  ui.nodes["#edit-message"].events.click();
-  const editor = original.children.at(-1);
-  editor.children[0].value = "Edited question";
-  const save = editor.children[1];
-  let focusPreserved = false;
-  save.events.pointerdown({ preventDefault() { focusPreserved = true; } });
-  assert.equal(focusPreserved, true);
-  const pending = save.events.pointerup({ pointerType: "touch", preventDefault() {}, stopPropagation() {} });
-  assert.equal(sent.length, 2);
-  assert.deepEqual(sent[1], { message: "Edited question", history: [] });
-  assert.equal(original.children.includes(editor), false);
-  assert.equal(ui.messages.children.length, 2);
-  assert.equal(ui.messages.children[0].children[1].textContent, "Edited question");
-  assert.equal(ui.messages.children[1].children[1].textContent, "Thinking…");
-  assert.ok(!ui.messages.textContent.includes("Original reply"));
-  save.events.click();
-  assert.equal(sent.length, 2);
-  resolveReply(sseResponse("Regenerated reply"));
-  await pending;
-  assert.equal(ui.messages.children[1].children[1].textContent, "Regenerated reply");
-  const saved = JSON.parse(ui.storage.get("jafai.chatSessions.v1"))[0];
-  assert.deepEqual(saved.messages.map(message => message.content), ["Edited question", "Regenerated reply"]);
-  assert.equal(ui.button.disabled, true);
-});
-
-test("mobile touch Cancel restores the original bubble and reply without an API call", async () => {
-  let calls = 0;
-  const ui = frontend(async () => { calls++; return sseResponse("Original reply"); }, { mobile: true });
-  ui.input.value = "Original question";
-  await ui.submit();
-  const original = ui.messages.children[0];
-  original.children[2].children[1].events.click();
-  const editor = original.children.at(-1);
-  editor.children[0].value = "Discard me";
-  const cancel = editor.children[2];
-  cancel.events.pointerup({ pointerType: "touch", preventDefault() {}, stopPropagation() {} });
-  cancel.events.click();
-  assert.equal(calls, 1);
-  assert.equal(original.children.includes(editor), false);
-  assert.equal(original.children[1].hidden, false);
-  assert.equal(original.children[2].hidden, false);
-  assert.equal(original.children[1].textContent, "Original question");
-  assert.equal(ui.messages.children[1].children[1].textContent, "Original reply");
-});
-
-test("editing a streaming message cancels stale output and keeps the original attachment", async () => {
   let resolveOld;
-  const sent = [];
   const ui = frontend((_url, options) => {
     sent.push(JSON.parse(options.body));
     return sent.length === 1 ? new Promise(resolve => { resolveOld = resolve; }) : Promise.resolve(sseResponse("Fresh reply"));
-  });
+  }, { mobile: true });
   ui.nodes["#image-file"].files = [{ name: "test.png", type: "image/png", size: 68, contents: imageFixture }];
   await ui.nodes["#image-file"].events.change();
   ui.input.value = "Original";
   const pending = ui.submit();
-  const first = ui.messages.children[0];
-  first.children[2].children[1].events.click();
-  const editor = first.children.at(-1);
-  editor.children[0].value = "Revised";
-  await editor.children[0].events.keydown({ key: "Enter", preventDefault() {} });
-  // The key handler initiates regeneration; resolve the superseded request afterwards.
+  ui.messages.children[0].children[2].children[1].events.click();
+  assert.equal(ui.messages.children.length, 1);
+  assert.equal(ui.nodes["#image-preview"].src, imageFixture);
+  ui.input.value = "Revised";
+  await ui.submit();
   resolveOld(sseResponse("Stale reply"));
   await pending;
-  await new Promise(resolve => setImmediate(resolve));
   assert.equal(sent[1].image, imageFixture);
-  assert.equal(sent[1].message, "Revised");
   const saved = JSON.parse(ui.storage.get("jafai.chatSessions.v1"))[0];
-  assert.equal(saved.title, "Revised");
   assert.deepEqual(saved.messages.map(message => message.content), ["Revised", "Fresh reply"]);
-  assert.equal(saved.messages[0].image, imageFixture);
+  ui.messages.children[0].children[2].children[1].events.click();
+  ui.nodes["#new-chat"].events.click();
+  ui.input.value = "New question";
+  await ui.submit();
+  assert.deepEqual(sent[2], { message: "New question", history: [] });
 });
 
 test("copy actions use literal message text and report clipboard failures honestly", async () => {
@@ -579,7 +514,8 @@ test("mobile long press opens copy/edit menu, while movement and early release c
   bubble.events.pointerdown(down);
   ui.hold();
   ui.nodes["#edit-message"].events.click();
-  assert.equal(ui.messages.children[0].children.at(-1).className, "message-edit");
+  assert.equal(ui.input.value, "Question");
+  assert.equal(ui.messages.children.length, 1);
 });
 
 test("frontend posts messages, prevents duplicate sends, and renders reply as literal text", async () => {

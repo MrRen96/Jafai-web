@@ -106,9 +106,10 @@ its text. On touch devices, hold a bubble for 550 ms to open a Copy Text menu;
 moving more than 10 px or releasing early cancels the hold. Clipboard operations
 stay on the device and require browser clipboard support (HTTPS or localhost).
 The most recent user message also offers Edit, including in the touch menu.
-Save or Enter regenerates its reply; Shift+Enter adds a line and Cancel/Escape
-leaves the conversation unchanged. Editing preserves earlier context and the
-message's image, replaces subsequent replies, and keeps any composer draft.
+Edit moves the latest user message into the main composer and removes its old
+reply. The normal Send arrow or Enter submits the revised text and streams a
+fresh response; Shift+Enter adds a line. Earlier context and the message's image
+are preserved. There is no separate inline editor or Save/Cancel toolbar.
 
 The backend sends the active conversation's history, current message, and JAFAI system prompt to
 `https://api.deepseek.com/v1/chat/completions` using `deepseek-flash`.
