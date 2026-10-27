@@ -63,6 +63,9 @@ body.sidebar-open { --sidebar-offset: 260px; }
 .settings-about ul { margin: 0 0 16px; padding-left: 20px; }
 .settings-about li { margin-bottom: 12px; }
 .settings-about strong { color: var(--orange); font-weight: 600; }
+.support-link { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 12px; border: 1px solid #303030; border-radius: 0; background: transparent; color: var(--orange); font: inherit; text-decoration: none; cursor: pointer; }
+.support-link:hover { border-color: var(--orange); background: #ffffff06; }
+.support-link:focus-visible { outline: 1px solid var(--orange); outline-offset: 3px; }
 .settings-dialog .settings-disclaimer { display: block; margin-top: 20px; padding-top: 16px; border-top: 1px solid #303030; color: #777; font-size: 12px; line-height: 1.6; text-align: left; }
 .session-row { display: flex; align-items: stretch; margin-bottom: 8px; border-left: 2px solid transparent; }
 .session-row.is-active { border-color: var(--orange); background: #ff57220a; }
