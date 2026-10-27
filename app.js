@@ -264,18 +264,18 @@ let saveTimer = null;
 let storageReadable = true;
 let isSending = false;
 let isExporting = false;
-let responseStart = null;
+let exchangeStart = null;
 let viewportFrame = null;
 let sidebarOpen = false;
 
-function revealResponseStart(behavior = "smooth") {
-  const target = responseStart || messages.lastElementChild;
+function revealExchangeStart(behavior = "smooth") {
+  const target = exchangeStart || messages.lastElementChild;
   target?.scrollIntoView({ block: "start", inline: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : behavior });
 }
 
 function revealLatestMessage() {
   if (!mobileLayout.matches) return;
-  revealResponseStart("instant");
+  revealExchangeStart("instant");
 }
 
 function updateMobileViewport() {
@@ -533,7 +533,7 @@ function renderHistory() {
 }
 
 function renderConversation() {
-  responseStart = null;
+  exchangeStart = null;
   editTarget = null;
   closeMessageMenu();
   actionEntries = [];
@@ -734,20 +734,20 @@ async function sendMessage(text, image, editedMessage = null) {
   currentRequest = request;
   document.querySelector("#empty-state")?.remove();
   const userBody = appendMessage("You", text, userMessage.timestamp, userMessage);
+  exchangeStart = messages.lastElementChild;
   if (image) appendImage(userBody, image);
   clearImage(); input.value = "";
   updateComposer();
-  const replyBody = appendMessage("JAFAI", "Thinking…", assistantMessage.timestamp, assistantMessage);
-  responseStart = messages.lastElementChild;
-  const responseTarget = responseStart;
+  const replyBody = appendMessage("JAFAI", "", assistantMessage.timestamp, assistantMessage);
+  const responseTarget = exchangeStart;
   replyBody.setAttribute("aria-busy", "true");
   if (mobileLayout.matches) {
     input.blur();
     document.activeElement?.blur();
     setTimeout(() => {
-      if (activeSessionId !== session.id || responseStart !== responseTarget) return;
+      if (activeSessionId !== session.id || exchangeStart !== responseTarget) return;
       updateMobileViewport();
-      revealResponseStart("instant");
+      revealExchangeStart("instant");
     }, 150);
   } else {
     input.focus({ preventScroll: true });
@@ -755,7 +755,7 @@ async function sendMessage(text, image, editedMessage = null) {
   // Measure the cleared composer now rather than waiting for ResizeObserver.
   document.documentElement.style.setProperty("--dock-height", `${dock.offsetHeight}px`);
   updateMobileViewport();
-  revealResponseStart();
+  revealExchangeStart();
   saveSessions();
   renderHistory();
   let hasReply = false;

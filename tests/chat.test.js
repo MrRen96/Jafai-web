@@ -533,7 +533,7 @@ test("frontend posts messages, prevents duplicate sends, and renders reply as li
   ui.input.value = "Hello";
   const pending = ui.submit();
   assert.equal(ui.button.disabled, true);
-  assert.equal(ui.messages.children[1].children[1].textContent, "Thinking…");
+  assert.equal(ui.messages.children[1].children[1].textContent, "");
   ui.input.value = "Next draft";
   await ui.submit();
   assert.equal(calls, 1);
@@ -1083,7 +1083,8 @@ test("send paints the user message, clears input, and reveals the response div b
     assert.notEqual(ui.messages.scrollTop, ui.messages.scrollHeight);
     assert.equal(ui.cssProperties.get("--dock-height"), "164px");
     assert.equal(ui.input.blurred, true);
-    assert.equal(ui.messages.lastElementChild.scrollIntoViewOptions.block, "start");
+    assert.equal(ui.messages.children[ui.messages.children.length - 2].scrollIntoViewOptions.block, "start");
+    assert.equal(ui.messages.lastElementChild.scrollIntoViewCalls, undefined);
     return sseResponse("Reply");
   }, { mobile: true });
   const append = ui.messages.append.bind(ui.messages);
@@ -1100,7 +1101,7 @@ test("send paints the user message, clears input, and reveals the response div b
   assert.notEqual(ui.messages.scrollTop, ui.messages.scrollHeight);
 });
 
-test("mobile send dismisses the keyboard and reveals the response start after 150ms", async () => {
+test("mobile send dismisses the keyboard and reveals the user exchange start after 150ms", async () => {
   const mobile = frontend(async () => sseResponse("Answer"), { mobile: true });
   mobile.input.focus();
   mobile.input.value = "Question";
@@ -1113,7 +1114,7 @@ test("mobile send dismisses the keyboard and reveals the response start after 15
   mobile.messages.scrollTop = 0;
   mobile.keyboardTimers[0]();
   assert.equal(mobile.messages.scrollTop, 0);
-  assert.equal(mobile.messages.lastElementChild.scrollIntoViewOptions.block, "start");
+  assert.equal(mobile.messages.children[mobile.messages.children.length - 2].scrollIntoViewOptions.block, "start");
   assert.equal(mobile.cssProperties.get("--keyboard-inset"), "0px");
   assert.equal(mobile.cssProperties.get("--mobile-viewport-height"), "800px");
   const desktop = frontend(async () => sseResponse("Answer"));
@@ -1158,7 +1159,7 @@ test("mobile focus reveals the latest message and keyboard viewport changes rese
   const ui = frontend(async () => sseResponse("Latest answer"), { mobile: true });
   ui.input.value = "Question";
   await ui.submit();
-  const latest = ui.messages.lastElementChild;
+  const latest = ui.messages.children[ui.messages.children.length - 2];
   ui.input.focus();
   ui.input.events.focus();
   ui.paint();
@@ -1194,8 +1195,8 @@ test("keyboard focus logic leaves desktop unchanged and supports mobile without 
   desktop.visualViewport.height = 400;
   desktop.viewportEvents.resize();
   desktop.paint();
-  assert.equal(desktop.messages.lastElementChild.scrollIntoViewCalls, 1);
-  assert.equal(desktop.messages.lastElementChild.scrollIntoViewOptions.block, "start");
+  assert.equal(desktop.messages.children[desktop.messages.children.length - 2].scrollIntoViewCalls, 1);
+  assert.equal(desktop.messages.children[desktop.messages.children.length - 2].scrollIntoViewOptions.block, "start");
   assert.equal(desktop.cssProperties.has("--mobile-viewport-height"), false);
   assert.equal(desktop.cssProperties.has("--keyboard-inset"), false);
   const mobile = frontend(async () => sseResponse(), { mobile: true, noVisualViewport: true });
