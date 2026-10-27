@@ -51,8 +51,14 @@ body.sidebar-open { --sidebar-offset: 260px; }
 .settings-close:hover { color: var(--orange); }
 .settings-note { margin: 16px 0; color: #929292; font-size: 12px; line-height: 1.6; }
 .settings-about { margin-top: 24px; padding-top: 20px; border-top: 1px solid #303030; color: #a0a0a0; font-size: 14px; line-height: 1.6; }
-.settings-about h3, .settings-about h4 { margin: 0 0 12px; color: var(--orange); font-size: 14px; }
-.settings-about h3 { letter-spacing: .12em; }
+.settings-about h4 { margin: 0 0 12px; color: var(--orange); font-size: 14px; }
+.settings-about summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; color: var(--orange); font-size: 14px; font-weight: 600; letter-spacing: .12em; list-style: none; cursor: pointer; }
+.settings-about summary::-webkit-details-marker { display: none; }
+.settings-about summary::after { content: "+"; margin-left: 16px; font-size: 18px; font-weight: 400; }
+.settings-about[open] summary { margin-bottom: 12px; }
+.settings-about[open] summary::after { content: "−"; }
+.settings-about summary:hover { background: #ffffff06; }
+.settings-about summary:focus-visible { outline: 1px solid var(--orange); outline-offset: 3px; }
 .settings-about p { margin: 0 0 16px; }
 .settings-about ul { margin: 0 0 16px; padding-left: 20px; }
 .settings-about li { margin-bottom: 12px; }
